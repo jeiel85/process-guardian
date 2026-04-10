@@ -5,6 +5,11 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Management;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 
 namespace ProcessGuardian
 {
@@ -18,12 +23,9 @@ namespace ProcessGuardian
         private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);  
         private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11); 
 
-        private Panel[] slotCards;
-        private TextBox[] pathBoxes;
-        private Label[] statusLeds;
-        private Label[] statusTexts;
-        private Label[] slotLabels;
-        private Button[] browseButtons;
+        private List<ProcessSlot> slots = new List<ProcessSlot>();
+        private FlowLayoutPanel flowSlots;
+        private Button btnAddSlot;
 
         private Label lblLang;
         private Label lblInterval;
@@ -32,21 +34,42 @@ namespace ProcessGuardian
 
         private NotifyIcon trayIcon;
         private ContextMenuStrip trayMenu;
-        private System.Windows.Forms.Timer monitorTimer;
+        
+        private CancellationTokenSource? cts;
+        private List<ProcessSlot> slots = new List<ProcessSlot>();
+        private RichTextBox logBox;
+        private Label lblAdminWarn;
+        private bool isAdmin = false;
+
+        private int monitoringInterval = 3000;
 
         public Form1()
         {
             InitializeComponent();
+            CheckAdminStatus();
             InitializeModernUI(); 
             LoadSettings();       
             StartMonitoring();    
             UpdateUITexts(); 
+            Log(isAdmin ? "System started with Administrator privileges." : "System started with User privileges. (Some monitoring might be limited)", 
+                isAdmin ? ColorStatusRunning : ColorStatusWarning);
+        }
+
+        private void CheckAdminStatus()
+        {
+            try {
+                using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                {
+                    WindowsPrincipal principal = new WindowsPrincipal(identity);
+                    isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
+                }
+            } catch { isAdmin = false; }
         }
 
         private void InitializeModernUI()
         {
             this.Text = "Process Guardian Professional";
-            this.Size = new Size(580, 680); 
+            this.Size = new Size(580, 850); 
             this.BackColor = ColorBackground;
             this.ForeColor = ColorText;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -59,39 +82,37 @@ namespace ProcessGuardian
             Label header = new Label { Text = "Process Guardian Pro", Font = new Font("Segoe UI", 20F, FontStyle.Bold), Location = new Point(65, 18), AutoSize = true, ForeColor = ColorText };
             this.Controls.Add(header);
 
-            slotCards = new Panel[5];
-            pathBoxes = new TextBox[5];
-            statusLeds = new Label[5];
-            statusTexts = new Label[5];
-            slotLabels = new Label[5];
-            browseButtons = new Button[5];
-
-            for (int i = 0; i < 5; i++)
+            if (!isAdmin)
             {
-                Panel card = new Panel { Location = new Point(25, 80 + (i * 105)), Size = new Size(515, 90), BackColor = ColorCard, Padding = new Padding(15) };
-                card.Paint += Card_Paint;
-                
-                statusLeds[i] = new Label { Location = new Point(18, 18), Size = new Size(14, 14), BackColor = Color.Transparent, Tag = "stopped" };
-                statusLeds[i].Paint += StatusLed_Paint;
-                
-                slotLabels[i] = new Label { Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true };
-                statusTexts[i] = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 140 };
-                pathBoxes[i] = new TextBox { Location = new Point(18, 48), Width = 400, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
-
-                browseButtons[i] = new Button { Text = "Browse", Location = new Point(428, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
-                browseButtons[i].FlatAppearance.BorderSize = 0;
-                browseButtons[i].Click += BtnSelect_Click;
-                browseButtons[i].MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
-                browseButtons[i].MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
-
-                card.Controls.Add(statusLeds[i]);
-                card.Controls.Add(slotLabels[i]);
-                card.Controls.Add(statusTexts[i]);
-                card.Controls.Add(pathBoxes[i]);
-                card.Controls.Add(browseButtons[i]);
-                this.Controls.Add(card);
-                slotCards[i] = card;
+                lblAdminWarn = new Label { Text = "⚠ USER MODE", ForeColor = ColorStatusStopped, Font = new Font("Segoe UI", 8F, FontStyle.Bold), Location = new Point(420, 32), AutoSize = true };
+                this.Controls.Add(lblAdminWarn);
             }
+
+            btnAddSlot = new Button
+            {
+                Text = "+ Add Slot",
+                Location = new Point(440, 20),
+                Size = new Size(100, 32),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(50, 50, 55),
+                ForeColor = ColorAccent,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            };
+            btnAddSlot.FlatAppearance.BorderSize = 1;
+            btnAddSlot.FlatAppearance.BorderColor = ColorAccent;
+            btnAddSlot.Click += (s, e) => AddNewSlot(); 
+            this.Controls.Add(btnAddSlot);
+
+            flowSlots = new FlowLayoutPanel
+            {
+                Location = new Point(25, 80),
+                Size = new Size(530, 520),
+                AutoScroll = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                BackColor = Color.Transparent
+            };
+            this.Controls.Add(flowSlots);
 
             lblLang = new Label { Location = new Point(25, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
             ComboBox comboLang = new ComboBox { Location = new Point(100, 602), Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
@@ -108,6 +129,11 @@ namespace ProcessGuardian
             this.Controls.Add(lblInterval);
             this.Controls.Add(numInterval);
 
+            CheckBox chkAutoStart = new CheckBox { Text = "Auto Start", Location = new Point(410, 602), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            chkAutoStart.Checked = IsAutoStartEnabled();
+            chkAutoStart.CheckedChanged += (s, e) => SetAutoStart(chkAutoStart.Checked);
+            this.Controls.Add(chkAutoStart);
+
             trayMenu = new ContextMenuStrip();
             trayMenu.Renderer = new DarkModeRenderer(); 
             trayOpenItem = new ToolStripMenuItem("Open Dashboard", null, (s, e) => ShowForm());
@@ -123,9 +149,51 @@ namespace ProcessGuardian
             trayIcon.Visible = true;
             trayIcon.DoubleClick += (s, e) => ShowForm();
 
-            monitorTimer = new System.Windows.Forms.Timer();
-            monitorTimer.Interval = 3000;
-            monitorTimer.Tick += MonitorTimer_Tick;
+            logBox = new RichTextBox
+            {
+                Location = new Point(25, 645),
+                Size = new Size(515, 140),
+                BackColor = Color.FromArgb(25, 25, 30),
+                ForeColor = Color.FromArgb(200, 200, 210),
+                BorderStyle = BorderStyle.None,
+                ReadOnly = true,
+                Font = new Font("Consolas", 8.5F)
+            };
+            this.Controls.Add(logBox);
+        }
+
+        private void AddNewSlot(string path = "")
+        {
+            int i = slots.Count;
+            ProcessSlot slot = new ProcessSlot { Index = i, Path = path };
+            
+            Panel card = new Panel { Size = new Size(500, 90), BackColor = ColorCard, Padding = new Padding(15), Margin = new Padding(0, 0, 0, 10) };
+            card.Paint += Card_Paint;
+            
+            slot.Led = new Label { Location = new Point(18, 18), Size = new Size(14, 14), BackColor = Color.Transparent, Tag = "stopped" };
+            slot.Led.Paint += StatusLed_Paint;
+            
+            slot.SlotLabel = new Label { Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true, Text = $"{GetStr("Slot")} {i + 1}" };
+            slot.StatusText = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 140 };
+            slot.PathBox = new TextBox { Text = path, Location = new Point(18, 48), Width = 380, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
+
+            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(410, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
+            slot.BrowseBtn.FlatAppearance.BorderSize = 0;
+            slot.BrowseBtn.Click += BtnSelect_Click;
+            slot.BrowseBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
+            slot.BrowseBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
+
+            card.Controls.Add(slot.Led);
+            card.Controls.Add(slot.SlotLabel);
+            card.Controls.Add(slot.StatusText);
+            card.Controls.Add(slot.PathBox);
+            card.Controls.Add(slot.BrowseBtn);
+            
+            slot.Card = card;
+            slots.Add(slot);
+            flowSlots.Controls.Add(card);
+            
+            if (flowSlots.Controls.Count > 1) Log($"New monitor slot added (Total: {slots.Count})");
         }
 
         private void BtnSelect_Click(object sender, EventArgs e)
@@ -138,11 +206,17 @@ namespace ProcessGuardian
                 ofd.Title = "Select Application to Monitor";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    pathBoxes[index].Text = ofd.FileName;
-                    statusTexts[index].Text = GetStr("Loaded");
-                    statusLeds[index].Tag = "warning";
-                    statusLeds[index].Invalidate();
+                    if (index < slots.Count) {
+                        var slot = slots[index];
+                        slot.Path = ofd.FileName;
+                        slot.FailureCount = 0;
+                        slot.IsBackingOff = false;
+                        if (slot.PathBox != null) slot.PathBox.Text = ofd.FileName;
+                        if (slot.StatusText != null) slot.StatusText.Text = GetStr("Loaded");
+                        if (slot.Led != null) { slot.Led.Tag = "warning"; slot.Led.Invalidate(); }
+                    }
                     SaveSettings();
+                    Log($"New process registered to Slot {index + 1}: {Path.GetFileName(ofd.FileName)}");
                 }
             }
         }
@@ -153,64 +227,194 @@ namespace ProcessGuardian
             base.OnFormClosing(e);
         }
 
-        private void MonitorTimer_Tick(object sender, EventArgs e)
-        {
-            for (int i = 0; i < 5; i++)
-            {
-                string path = pathBoxes[i].Text;
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) { 
-                    statusLeds[i].Tag = "idle"; 
-                    statusLeds[i].Invalidate(); 
-                    statusTexts[i].Text = GetStr("Empty"); 
-                    statusTexts[i].ForeColor = Color.FromArgb(80, 80, 90); 
-                    continue; 
-                }
-                string processName = Path.GetFileNameWithoutExtension(path);
-                Process[] processes = Process.GetProcessesByName(processName);
-                if (processes.Length > 0) { 
-                    statusLeds[i].Tag = "running"; 
-                    statusLeds[i].Invalidate(); 
-                    statusTexts[i].Text = GetStr("Running"); 
-                    statusTexts[i].ForeColor = ColorStatusRunning; 
-                }
-                else {
-                    statusLeds[i].Tag = "stopped"; 
-                    statusLeds[i].Invalidate(); 
-                    statusTexts[i].Text = GetStr("Restarting"); 
-                    statusTexts[i].ForeColor = ColorStatusStopped;
-                    try { 
-                        Process.Start(path); 
-                        trayIcon.ShowBalloonTip(1000, "Guardian Alert", $" " + GetStr("Recovered"), ToolTipIcon.Warning); 
-                    }
-                    catch (Exception ex) { Debug.WriteLine($"Recovery Error: {ex.Message}"); statusTexts[i].Text = "ERROR"; }
-                }
-            }
-        }
-
         private void LoadSettings()
         {
             try {
-                pathBoxes[0].Text = Properties.Settings.Default.Path1;
-                pathBoxes[1].Text = Properties.Settings.Default.Path2;
-                pathBoxes[2].Text = Properties.Settings.Default.Path3;
-                pathBoxes[3].Text = Properties.Settings.Default.Path4;
-                pathBoxes[4].Text = Properties.Settings.Default.Path5;
+                string[] savedPaths = {
+                    Properties.Settings.Default.Path1,
+                    Properties.Settings.Default.Path2,
+                    Properties.Settings.Default.Path3,
+                    Properties.Settings.Default.Path4,
+                    Properties.Settings.Default.Path5
+                };
+
+                for (int i = 0; i < 5; i++)
+                {
+                    AddNewSlot(savedPaths[i]);
+                }
             } catch { }
         }
 
         private void SaveSettings()
         {
-            Properties.Settings.Default.Path1 = pathBoxes[0].Text;
-            Properties.Settings.Default.Path2 = pathBoxes[1].Text;
-            Properties.Settings.Default.Path3 = pathBoxes[2].Text;
-            Properties.Settings.Default.Path4 = pathBoxes[3].Text;
-            Properties.Settings.Default.Path5 = pathBoxes[4].Text;
+            if (slots.Count >= 1) Properties.Settings.Default.Path1 = slots[0].Path;
+            if (slots.Count >= 2) Properties.Settings.Default.Path2 = slots[1].Path;
+            if (slots.Count >= 3) Properties.Settings.Default.Path3 = slots[2].Path;
+            if (slots.Count >= 4) Properties.Settings.Default.Path4 = slots[3].Path;
+            if (slots.Count >= 5) Properties.Settings.Default.Path5 = slots[4].Path;
             Properties.Settings.Default.Save();
         }
 
-        private void StartMonitoring() => monitorTimer.Start();
+        private void StartMonitoring()
+        {
+            cts = new CancellationTokenSource();
+            Task.Run(() => MonitorLoopAsync(cts.Token));
+            Log("Monitoring loop started.", ColorStatusRunning);
+        }
+
+        private async Task MonitorLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    for (int i = 0; i < slots.Count; i++)
+                    {
+                        var slot = slots[i];
+                        if (string.IsNullOrWhiteSpace(slot.Path)) continue;
+
+                        if (slot.IsBackingOff && DateTime.Now < slot.NextCheckTime) continue;
+
+                        bool isRunning = IsProcessRunning(slot.Path);
+
+                        if (this.IsHandleCreated)
+                        {
+                            this.Invoke(new Action(() => {
+                                if (isRunning)
+                                {
+                                    if (slot.Led != null) { slot.Led.Tag = "running"; slot.Led.Invalidate(); }
+                                    if (slot.StatusText != null) 
+                                    {
+                                        slot.StatusText.Text = GetStr("Running");
+                                        slot.StatusText.ForeColor = ColorStatusRunning;
+                                    }
+                                    slot.FailureCount = 0;
+                                    slot.IsBackingOff = false;
+                                    CheckProcessResources(slot);
+                                }
+                                else
+                                {
+                                    if (slot.Led != null) { slot.Led.Tag = "stopped"; slot.Led.Invalidate(); }
+                                    if (slot.StatusText != null) 
+                                    {
+                                        slot.StatusText.Text = GetStr("Restarting");
+                                        slot.StatusText.ForeColor = ColorStatusStopped;
+                                    }
+                                    
+                                    AttemptRecovery(slot);
+                                }
+                            }));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Monitor Loop Error: {ex.Message}");
+                }
+                await Task.Delay(monitoringInterval, token);
+            }
+        }
+
+        private bool IsProcessRunning(string targetPath)
+        {
+            try
+            {
+                string targetName = Path.GetFileNameWithoutExtension(targetPath);
+                Process[] processes = Process.GetProcessesByName(targetName);
+                foreach (var p in processes)
+                {
+                    try
+                    {
+                        if (string.Equals(p.MainModule?.FileName, targetPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private void AttemptRecovery(ProcessSlot slot)
+        {
+            try
+            {
+                Process.Start(slot.Path);
+                Log($"Recovered: {Path.GetFileName(slot.Path)}", ColorStatusRunning);
+                trayIcon.ShowBalloonTip(1000, "Guardian Alert", $"{Path.GetFileName(slot.Path)} " + GetStr("Recovered"), ToolTipIcon.Warning);
+                slot.FailureCount = 0;
+            }
+            catch (Exception ex)
+            {
+                slot.FailureCount++;
+                Log($"Failed to restart {Path.GetFileName(slot.Path)}: {ex.Message}", ColorStatusStopped);
+                
+                if (slot.FailureCount >= 3) // Reduced to 3 for faster testing
+                {
+                    slot.IsBackingOff = true;
+                    slot.NextCheckTime = DateTime.Now.AddSeconds(monitoringInterval * 10 / 1000); 
+                    Log($"Threshold reached for {Path.GetFileName(slot.Path)}. Entering backoff mode.", ColorStatusWarning);
+                    
+                    statusLeds[slot.Index].Tag = "warning";
+                    statusLeds[slot.Index].Invalidate();
+                    statusTexts[slot.Index].Text = "ERROR (LIMIT)";
+                }
+            }
+        }
+
+        private void CheckProcessResources(ProcessSlot slot)
+        {
+            try {
+                // To avoid too frequent logs, we only check every few cycles
+                string targetName = Path.GetFileNameWithoutExtension(slot.Path);
+                Process[] p = Process.GetProcessesByName(targetName);
+                foreach(var proc in p) {
+                    if (string.Equals(proc.MainModule?.FileName, slot.Path, StringComparison.OrdinalIgnoreCase)) {
+                        long memMB = proc.WorkingSet64 / 1024 / 1024;
+                        if (memMB > 2048) { // 2GB Threshold
+                             Log($"[Watchdog] Resource Alert: {Path.GetFileName(slot.Path)} memory usage is high ({memMB}MB).", ColorStatusWarning);
+                        }
+                    }
+                }
+            } catch { }
+        }
+
+        private void Log(string message, Color? color = null)
+        {
+            if (logBox.InvokeRequired)
+            {
+                logBox.Invoke(new Action(() => Log(message, color)));
+                return;
+            }
+            logBox.SelectionStart = logBox.TextLength;
+            logBox.SelectionLength = 0;
+            logBox.SelectionColor = color ?? ColorText;
+            logBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            logBox.ScrollToCaret();
+        }
+
+        private bool IsAutoStartEnabled()
+        {
+            try {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) { return key?.GetValue("ProcessGuardian") != null; }
+            } catch { return false; }
+        }
+
+        private void SetAutoStart(bool enable)
+        {
+            try {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
+                    if (enable) key?.SetValue("ProcessGuardian", $"\"{Application.ExecutablePath}\"");
+                    else key?.DeleteValue("ProcessGuardian", false);
+                }
+                Log(enable ? "Auto-start enabled." : "Auto-start disabled.");
+            } catch (Exception ex) { Log($"Failed to set auto-start: {ex.Message}", ColorStatusStopped); }
+        }
+
         private void ShowForm() { this.Show(); this.WindowState = FormWindowState.Normal; this.Activate(); }
-        private void ExitApp() { monitorTimer.Stop(); trayIcon.Visible = false; Application.Exit(); }
+        private void ExitApp() { cts?.Cancel(); trayIcon.Visible = false; Application.Exit(); }
 
         private int currentLangIndex = 0; 
 
@@ -245,11 +449,12 @@ namespace ProcessGuardian
             lblInterval.Text = GetStr("Interval");
             trayOpenItem.Text = GetStr("Open");
             trayExitItem.Text = GetStr("Exit");
+            if (btnAddSlot != null) btnAddSlot.Text = "+ " + GetStr("Slot");
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < slots.Count; i++)
             {
-                slotLabels[i].Text = $"{GetStr("Slot")} {i + 1}";
-                browseButtons[i].Text = GetStr("Browse");
+                if (slots[i].SlotLabel != null) slots[i].SlotLabel.Text = $"{GetStr("Slot")} {i + 1}";
+                if (slots[i].BrowseBtn != null) slots[i].BrowseBtn.Text = GetStr("Browse");
             }
         }
 
@@ -293,6 +498,15 @@ namespace ProcessGuardian
             path.CloseFigure();
             return path;
         }
+    }
+
+    public class ProcessSlot
+    {
+        public int Index { get; set; }
+        public string Path { get; set; } = "";
+        public int FailureCount { get; set; } = 0;
+        public DateTime NextCheckTime { get; set; } = DateTime.MinValue;
+        public bool IsBackingOff { get; set; } = false;
     }
 
     internal class DarkModeRenderer : ToolStripProfessionalRenderer

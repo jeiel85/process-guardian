@@ -213,6 +213,28 @@
             border-radius: 8px;
             cursor: pointer;
         }
+
+        .app-preview {
+            margin: 40px 0 80px;
+            text-align: center;
+            perspective: 1000px;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px -12px rgba(0,0,0,0.5), 
+                        0 18px 36px -18px rgba(59, 130, 246, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+        }
+
+        .preview-img:hover {
+            transform: translateY(-10px) rotateX(2deg);
+            box-shadow: 0 50px 80px -20px rgba(0,0,0,0.6), 
+                        0 30px 50px -25px rgba(59, 130, 246, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -236,6 +258,10 @@
                 <a href="https://github.com/jeiel85/process-guardian" class="btn btn-secondary" id="btnView">View Repository</a>
             </div>
         </header>
+
+        <div class="app-preview">
+            <img src="assets/screenshot_main.png" alt="Process Guardian Preview" class="preview-img">
+        </div>
 
         <section class="stats">
             <div class="stat-item">

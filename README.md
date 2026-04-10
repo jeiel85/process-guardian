@@ -14,6 +14,14 @@
 
 **Process Guardian**은 Windows 환경에서 중요한 프로세스가 예기치 않게 종료되는 것을 방지하기 위해 설계된 강력하고 가벼운 프로세스 관리 도구입니다. 백그라운드에서 실시간으로 대상을 감시하며, 예외 상황 발생 시 즉각적으로 복구하여 시스템의 연속성을 보장합니다.
 
+## 📸 Preview
+
+<p align="center">
+  <img src="./docs/assets/screenshot_main.png" width="800" alt="Process Guardian Dashboard Preview">
+</p>
+
+---
+
 > [!IMPORTANT]
 > **필수 요구 사항**: 이 프로그램은 **.NET 8 Desktop Runtime**이 설치되어 있어야 작동합니다. 실행 시 오류가 발생한다면 [공식 다운로드 링크](https://dotnet.microsoft.com/download/dotnet/8.0)에서 **Windows Desktop Runtime**을 설치해 주세요.
 
@@ -28,7 +36,7 @@
 ## 🚀 Getting Started
 
 ### Prerequisites
-- .NET Framework 4.7.2 이상
+- .NET 8.0 Desktop Runtime
 - Windows 10 / 11
 
 ### Manual
@@ -36,6 +44,12 @@
 2. **슬롯 등록**: `Browse` 버튼을 클릭하여 감시할 실행 파일(`.exe`)을 선택합니다.
 3. **자동 감시**: 경로가 등록되면 즉시 감시가 시작됩니다.
 4. **최소화**: 창을 닫으면 시스템 트레이로 이동하며 백그라운드에서 계속 동작합니다.
+
+### 📥 배포 옵션 (Download Options)
+GitHub Releases에서 환경에 맞는 파일을 선택하세요:
+
+- **Slim 버전 (`ProcessGuardian_v1.2.0_Slim.exe`)**: 용량이 매우 작지만 실행을 위해 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)이 필요합니다. (권장)
+- **Standalone 버전 (`ProcessGuardian_v1.2.0_Standalone.exe`)**: 용량은 크지만(약 160MB), 런타임 설치 없이 모든 PC에서 즉시 실행됩니다.
 
 ## 🛠️ Built With
 

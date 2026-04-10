@@ -7,7 +7,6 @@ using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Management;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 
@@ -36,7 +35,6 @@ namespace ProcessGuardian
         private ContextMenuStrip trayMenu;
         
         private CancellationTokenSource? cts;
-        private List<ProcessSlot> slots = new List<ProcessSlot>();
         private RichTextBox logBox;
         private Label lblAdminWarn;
         private bool isAdmin = false;
@@ -122,7 +120,7 @@ namespace ProcessGuardian
 
             lblInterval = new Label { Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
             NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 50, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
-            numInterval.ValueChanged += (s, e) => { if (monitorTimer != null) monitorTimer.Interval = (int)numInterval.Value * 1000; };
+            numInterval.ValueChanged += (s, e) => { monitoringInterval = (int)numInterval.Value * 1000; };
 
             this.Controls.Add(lblLang);
             this.Controls.Add(comboLang);
@@ -357,9 +355,13 @@ namespace ProcessGuardian
                     slot.NextCheckTime = DateTime.Now.AddSeconds(monitoringInterval * 10 / 1000); 
                     Log($"Threshold reached for {Path.GetFileName(slot.Path)}. Entering backoff mode.", ColorStatusWarning);
                     
-                    statusLeds[slot.Index].Tag = "warning";
-                    statusLeds[slot.Index].Invalidate();
-                    statusTexts[slot.Index].Text = "ERROR (LIMIT)";
+                    if (slot.Led != null) {
+                        slot.Led.Tag = "warning";
+                        slot.Led.Invalidate();
+                    }
+                    if (slot.StatusText != null) {
+                        slot.StatusText.Text = "ERROR (LIMIT)";
+                    }
                 }
             }
         }
@@ -507,6 +509,13 @@ namespace ProcessGuardian
         public int FailureCount { get; set; } = 0;
         public DateTime NextCheckTime { get; set; } = DateTime.MinValue;
         public bool IsBackingOff { get; set; } = false;
+
+        public Panel? Card { get; set; }
+        public Label? Led { get; set; }
+        public Label? StatusText { get; set; }
+        public TextBox? PathBox { get; set; }
+        public Button? BrowseBtn { get; set; }
+        public Label? SlotLabel { get; set; }
     }
 
     internal class DarkModeRenderer : ToolStripProfessionalRenderer

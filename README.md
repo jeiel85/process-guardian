@@ -1,7 +1,7 @@
 # Process Guardian Professional
 
 <p align="center">
-  <img src="C:\Users\jeiel\.gemini\antigravity\brain\330f218f-f11e-4ab6-ab88-5dd0e083908d\process_guardian_logo_1775789709642.png" width="200" alt="Process Guardian Logo">
+  <img src="./Resources/logo.png" width="200" alt="Process Guardian Logo">
 </p>
 
 <p align="center">

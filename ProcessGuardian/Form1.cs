@@ -1,18 +1,28 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
+using System.Collections.Generic;
 
 namespace ProcessGuardian
 {
     public partial class Form1 : Form
     {
-        // ƒ¡∆Æ∑— πËø≠ ∞¸∏Æ (ƒ⁄µ˘ ∆Ì¿«º∫)
-        private TextBox[] pathBoxes;
-        private Button[] selectButtons;
+        // ÌòÑÎåÄÏ†ÅÏù∏ ÏÉÅÏö© ÎîîÏûêÏù∏ Ïª¨Îü¨ ÌÖåÎßà
+        private static readonly Color ColorBackground = Color.FromArgb(32, 32, 32);
+        private static readonly Color ColorCard = Color.FromArgb(45, 45, 48);
+        private static readonly Color ColorAccent = Color.FromArgb(0, 122, 204);
+        private static readonly Color ColorText = Color.FromArgb(240, 240, 240);
+        private static readonly Color ColorStatusRunning = Color.FromArgb(0, 255, 127);
+        private static readonly Color ColorStatusStopped = Color.FromArgb(255, 69, 0);
 
-        // ∆Æ∑π¿Ã æ∆¿Ãƒ‹ ƒƒ∆˜≥Õ∆Æ
+        private Panel[] slotCards;
+        private TextBox[] pathBoxes;
+        private Label[] statusLeds;
+        private Label[] statusTexts;
+
         private NotifyIcon trayIcon;
         private ContextMenuStrip trayMenu;
         private System.Windows.Forms.Timer monitorTimer;
@@ -20,62 +30,155 @@ namespace ProcessGuardian
         public Form1()
         {
             InitializeComponent();
-            InitializeCustomUI(); // UI µø¿˚ ª˝º∫ π◊ √ ±‚»≠
-            LoadSettings();       // ¿˙¿Âµ» ∞Ê∑Œ ∫“∑Øø¿±‚
-            StartMonitoring();    // ∏¥œ≈Õ∏µ Ω√¿€
+            InitializeModernUI(); // ÌòÑÎåÄÏ†ÅÏù∏ UI Ï¥àÍ∏∞Ìôî
+            LoadSettings();       
+            StartMonitoring();    
         }
 
-        // ---------------------------------------------------------
-        // 1. UI π◊ √ ±‚»≠ øµø™
-        // ---------------------------------------------------------
-        private void InitializeCustomUI()
+        private void InitializeModernUI()
         {
-            this.Text = "Process Guardian Settings";
-            this.Size = new Size(500, 350);
+            // Í∏∞Î≥∏ Ìèº ÏÑ§Ï†ï
+            this.Text = "Process Guardian Professional";
+            this.Size = new Size(550, 600);
+            this.BackColor = ColorBackground;
+            this.ForeColor = ColorText;
+            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            pathBoxes = new TextBox[5];
-            selectButtons = new Button[5];
+            // Ìó§Îçî ÏÑπÏÖò
+            Label header = new Label
+            {
+                Text = "Monitoring Dashboard",
+                Font = new Font("Segoe UI Semibold", 18F),
+                Location = new Point(20, 20),
+                AutoSize = true,
+                ForeColor = ColorAccent
+            };
+            this.Controls.Add(header);
 
-            // 5∞≥¿« ΩΩ∑‘ ª˝º∫
+            slotCards = new Panel[5];
+            pathBoxes = new TextBox[5];
+            statusLeds = new Label[5];
+            statusTexts = new Label[5];
+
+            // 5Í∞úÏùò Î™®ÎãàÌÑ∞ÎßÅ Ïπ¥Îìú ÏÉùÏÑ±
             for (int i = 0; i < 5; i++)
             {
-                Label lbl = new Label { Text = $"Slot {i + 1}:", Location = new Point(20, 20 + (i * 40)), AutoSize = true };
+                Panel card = new Panel
+                {
+                    Location = new Point(20, 70 + (i * 95)),
+                    Size = new Size(495, 85),
+                    BackColor = ColorCard,
+                    Padding = new Padding(10)
+                };
+                
+                // ÏÉÅÌÉú LED ÏïÑÏù¥ÏΩò
+                statusLeds[i] = new Label
+                {
+                    Location = new Point(15, 15),
+                    Size = new Size(12, 12),
+                    BackColor = ColorStatusStopped,
+                    Text = ""
+                };
+                
+                Label lblSlot = new Label 
+                { 
+                    Text = $"PROCESS SLOT {i + 1}", 
+                    Location = new Point(35, 12), 
+                    Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                    ForeColor = Color.Gray,
+                    AutoSize = true 
+                };
 
-                pathBoxes[i] = new TextBox { Location = new Point(80, 20 + (i * 40)), Width = 300, ReadOnly = true };
+                statusTexts[i] = new Label
+                {
+                    Text = "WAITING...",
+                    Location = new Point(380, 12),
+                    TextAlign = ContentAlignment.TopRight,
+                    ForeColor = Color.DarkGray,
+                    Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+                    Width = 100
+                };
 
-                selectButtons[i] = new Button { Text = "...", Location = new Point(390, 18 + (i * 40)), Width = 40, Tag = i };
-                selectButtons[i].Click += BtnSelect_Click;
+                pathBoxes[i] = new TextBox 
+                { 
+                    Location = new Point(15, 40), 
+                    Width = 400, 
+                    BackColor = Color.FromArgb(30, 30, 30),
+                    ForeColor = ColorText,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    ReadOnly = true 
+                };
 
-                this.Controls.Add(lbl);
-                this.Controls.Add(pathBoxes[i]);
-                this.Controls.Add(selectButtons[i]);
+                Button btnSelect = new Button 
+                { 
+                    Text = "Browse", 
+                    Location = new Point(420, 38), 
+                    Width = 60, 
+                    Height = 25,
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = ColorAccent,
+                    ForeColor = Color.White,
+                    Tag = i 
+                };
+                btnSelect.FlatAppearance.BorderSize = 0;
+                btnSelect.Click += BtnSelect_Click;
+
+                card.Controls.Add(statusLeds[i]);
+                card.Controls.Add(lblSlot);
+                card.Controls.Add(statusTexts[i]);
+                card.Controls.Add(pathBoxes[i]);
+                card.Controls.Add(btnSelect);
+
+                this.Controls.Add(card);
+                slotCards[i] = card;
             }
 
-            // ∆Æ∑π¿Ã æ∆¿Ãƒ‹ º≥¡§
+            // Ïñ∏Ïñ¥ ÏÑ†ÌÉù UI (ÌïòÎã® Î∞∞Ïπò)
+            Label lblLang = new Label
+            {
+                Text = "Language:",
+                Location = new Point(20, 535),
+                AutoSize = true,
+                ForeColor = Color.Gray,
+                Font = new Font("Segoe UI", 8F)
+            };
+            ComboBox comboLang = new ComboBox
+            {
+                Location = new Point(85, 532),
+                Width = 100,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = ColorCard,
+                ForeColor = ColorText,
+                FlatStyle = FlatStyle.Flat
+            };
+            comboLang.Items.AddRange(new string[] { "English", "ÌïúÍµ≠Ïñ¥", "Êó•Êú¨Ë™û", "ÁÆÄ‰Ωì‰∏≠Êñá" });
+            comboLang.SelectedIndex = 0; // Í∏∞Î≥∏Í∞í
+            comboLang.SelectedIndexChanged += (s, e) => ChangeLanguage(comboLang.SelectedIndex);
+
+            this.Controls.Add(lblLang);
+            this.Controls.Add(comboLang);
+
+            // Ìä∏Î†àÏù¥ ÏïÑÏù¥ÏΩò Î∞è Î©îÎâ¥
             trayMenu = new ContextMenuStrip();
-            trayMenu.Items.Add("º≥¡§ ø≠±‚", null, (s, e) => ShowForm());
-            trayMenu.Items.Add("-"); // ±∏∫–º±
-            trayMenu.Items.Add("¡æ∑·", null, (s, e) => ExitApp());
+            trayMenu.Renderer = new ToolStripProfessionalRenderer(new CustomColorTable()); // Îã§ÌÅ¨ ÌÖåÎßà Î©îÎâ¥
+            trayMenu.Items.Add("Open Dashboard", null, (s, e) => ShowForm());
+            trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add("Exit Guardian", null, (s, e) => ExitApp());
 
             trayIcon = new NotifyIcon();
-            trayIcon.Text = "Process Guardian (∏¥œ≈Õ∏µ ¡ﬂ)";
-            // ¡÷¿«: Ω«¡¶ æ∆¿Ãƒ‹ ∆ƒ¿œ¿Ã æ¯¿∏∏È ø°∑Ø∞° ≥Ø ºˆ ¿÷¿∏π«∑Œ Ω√Ω∫≈€ æ∆¿Ãƒ‹ ªÁøÎ
+            trayIcon.Text = "Process Guardian Pro";
             trayIcon.Icon = SystemIcons.Shield;
             trayIcon.ContextMenuStrip = trayMenu;
             trayIcon.Visible = true;
             trayIcon.DoubleClick += (s, e) => ShowForm();
 
-            // ≈∏¿Ã∏” º≥¡§ (3√ ∏∂¥Ÿ √º≈©)
             monitorTimer = new System.Windows.Forms.Timer();
             monitorTimer.Interval = 3000;
             monitorTimer.Tick += MonitorTimer_Tick;
         }
 
-        // ---------------------------------------------------------
-        // 2. ¿Ã∫•∆Æ «⁄µÈ∑Ø (πˆ∆∞ ≈¨∏Ø µÓ)
-        // ---------------------------------------------------------
         private void BtnSelect_Click(object sender, EventArgs e)
         {
             Button btn = sender as Button;
@@ -84,69 +187,78 @@ namespace ProcessGuardian
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Filter = "Executable files (*.exe)|*.exe";
+                ofd.Title = "Select Application to Monitor";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     pathBoxes[index].Text = ofd.FileName;
-                    SaveSettings(); // ∞Ê∑Œ ∫Ø∞Ê ¡ÔΩ√ ¿˙¿Â
+                    statusTexts[index].Text = "LOADED";
+                    statusLeds[index].BackColor = Color.Orange;
+                    SaveSettings();
                 }
             }
         }
 
-        // √¢ ¥›±‚(X)∏¶ ¥©∏£∏È º˚±‚±‚ √≥∏Æ
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing)
             {
-                e.Cancel = true; // ¡¯¬• ¡æ∑· πÊ¡ˆ
-                this.Hide();     // º˚±‚±‚
-                trayIcon.ShowBalloonTip(1000, "º˚±Ë ∏µÂ", "«¡∑Œ±◊∑•¿Ã ∆Æ∑π¿Ã∑Œ √÷º“»≠µ«æ˙Ω¿¥œ¥Ÿ.", ToolTipIcon.Info);
+                e.Cancel = true;
+                this.Hide();
+                trayIcon.ShowBalloonTip(2000, "Background Mode", "Guardian is still protecting your processes.", ToolTipIcon.Info);
             }
             base.OnFormClosing(e);
         }
 
-        // ---------------------------------------------------------
-        // 3. «ŸΩ… ∑Œ¡˜: «¡∑ŒººΩ∫ ∞®Ω√ π◊ ¿ÁΩ««‡
-        // ---------------------------------------------------------
         private void MonitorTimer_Tick(object sender, EventArgs e)
         {
             for (int i = 0; i < 5; i++)
             {
                 string path = pathBoxes[i].Text;
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) continue;
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                {
+                    statusLeds[i].BackColor = Color.FromArgb(60, 60, 60);
+                    statusTexts[i].Text = "EMPTY";
+                    continue;
+                }
 
                 string processName = Path.GetFileNameWithoutExtension(path);
-
-                // «ÿ¥Á ¿Ã∏ß¿« «¡∑ŒººΩ∫∞° Ω««‡ ¡ﬂ¿Œ¡ˆ »Æ¿Œ
                 Process[] processes = Process.GetProcessesByName(processName);
 
-                if (processes.Length == 0)
+                if (processes.Length > 0)
                 {
-                    // «¡∑ŒººΩ∫∞° æ¯¿∏∏È ¿ÁΩ««‡
+                    statusLeds[i].BackColor = ColorStatusRunning;
+                    statusTexts[i].Text = "RUNNING";
+                    statusTexts[i].ForeColor = ColorStatusRunning;
+                }
+                else
+                {
+                    statusLeds[i].BackColor = ColorStatusStopped;
+                    statusTexts[i].Text = "RESTARTING...";
+                    statusTexts[i].ForeColor = ColorStatusStopped;
+                    
                     try
                     {
                         Process.Start(path);
-                        // ∑Œ±◊∏¶ ≥≤±‚∞≈≥™ æÀ∏≤¿ª ¡Ÿ ºˆ ¿÷¿Ω (≥ π´ ¿⁄¡÷ ∂ﬂ∏È ±Õ¬˙¿∏π«∑Œ ª˝∑´ ∞°¥…)
-                        trayIcon.ShowBalloonTip(1000, "¿ÁΩ««‡", $"{processName}¿Ã(∞°) ¥ŸΩ√ Ω√¿€µ«æ˙Ω¿¥œ¥Ÿ.", ToolTipIcon.Warning);
+                        trayIcon.ShowBalloonTip(1000, "Guardian Alert", $"{processName} recovered successfully.", ToolTipIcon.Warning);
                     }
                     catch (Exception ex)
                     {
-                        // Ω««‡ Ω«∆– Ω√ √≥∏Æ (ø©±‚º≠¥¬ ¡∂øÎ»˜ ≥—æÓ∞®)
-                        Debug.WriteLine($"Ω««‡ Ω«∆–: {ex.Message}");
+                        Debug.WriteLine($"Recovery Error: {ex.Message}");
+                        statusTexts[i].Text = "ERROR";
                     }
                 }
             }
         }
 
-        // ---------------------------------------------------------
-        // 4. ¿Ø∆ø∏Æ∆º (º≥¡§ ¿˙¿Â/∑ŒµÂ, ¡æ∑·)
-        // ---------------------------------------------------------
         private void LoadSettings()
         {
-            pathBoxes[0].Text = Properties.Settings.Default.Path1;
-            pathBoxes[1].Text = Properties.Settings.Default.Path2;
-            pathBoxes[2].Text = Properties.Settings.Default.Path3;
-            pathBoxes[3].Text = Properties.Settings.Default.Path4;
-            pathBoxes[4].Text = Properties.Settings.Default.Path5;
+            try {
+                pathBoxes[0].Text = Properties.Settings.Default.Path1;
+                pathBoxes[1].Text = Properties.Settings.Default.Path2;
+                pathBoxes[2].Text = Properties.Settings.Default.Path3;
+                pathBoxes[3].Text = Properties.Settings.Default.Path4;
+                pathBoxes[4].Text = Properties.Settings.Default.Path5;
+            } catch { /* Settings might not be initialized yet */ }
         }
 
         private void SaveSettings()
@@ -159,23 +271,56 @@ namespace ProcessGuardian
             Properties.Settings.Default.Save();
         }
 
-        private void StartMonitoring()
+        private void StartMonitoring() => monitorTimer.Start();
+        private void ShowForm() { this.Show(); this.WindowState = FormWindowState.Normal; this.Activate(); }
+        private void ExitApp() { monitorTimer.Stop(); trayIcon.Visible = false; Application.Exit(); }
+
+        // ---------------------------------------------------------
+        // 5. Localization (Îã§Íµ≠Ïñ¥ ÏßÄÏõê)
+        // ---------------------------------------------------------
+        private int currentLangIndex = 0; // 0:EN, 1:KO, 2:JA, 3:ZH
+
+        private string GetStr(string key)
         {
-            monitorTimer.Start();
+            var storage = new Dictionary<string, string[]>()
+            {
+                ["Title"] = new[] { "Monitoring Dashboard", "Î™®ÎãàÌÑ∞ÎßÅ ÎåÄÏãúÎ≥¥Îìú", "„É¢„Éã„Çø„É™„É≥„Ç∞„ÉÄ„ÉÉ„Ç∑„É•„Éú„Éº„Éâ", "ÁõëÊéß‰ª™Ë°®Êùø" },
+                ["Slot"] = new[] { "PROCESS SLOT", "ÌîÑÎ°úÏÑ∏Ïä§ Ïä¨Î°Ø", "„Éó„É≠„Çª„Çπ„Çπ„É≠„ÉÉ„Éà", "ËøõÁ®ãÊßΩ" },
+                ["Browse"] = new[] { "Browse", "Ï∞æÏïÑÎ≥¥Í∏∞", "ÂèÇÁÖß", "ÊµèËßà" },
+                ["Running"] = new[] { "RUNNING", "Ïã§Ìñâ Ï§ë", "ÂÆüË°å‰∏≠", "ËøêË°å‰∏≠" },
+                ["Stopped"] = new[] { "STOPPED", "Ï§ëÏßÄÎê®", "ÂÅúÊ≠¢‰∏≠", "Â∑≤ÂÅúÊ≠¢" },
+                ["Restarting"] = new[] { "RESTARTING...", "Ïû¨ÏãúÏûë Ï§ë...", "ÂÜçËµ∑Âãï‰∏≠...", "Ê≠£Âú®ÈáçÂêØ..." },
+                ["Empty"] = new[] { "EMPTY", "ÎπÑÏñ¥ ÏûàÏùå", "Á©∫", "Á©∫" },
+                ["Open"] = new[] { "Open Dashboard", "ÎåÄÏãúÎ≥¥Îìú Ïó¥Í∏∞", "„ÉÄ„ÉÉ„Ç∑„É•„Éú„Éº„Éâ„ÇíÈñã„Åè", "ÊâìÂºÄ‰ª™Ë°®Êùø" },
+                ["Exit"] = new[] { "Exit Guardian", "ÌîÑÎ°úÍ∑∏Îû® Ï¢ÖÎ£å", "„Ç¨„ÉºÎîîÏïà Ï¢ÖÎ£å", "ÈÄÄÂá∫" },
+                ["Recovered"] = new[] { "recovered successfully.", "ÏÑ±Í≥µÏ†ÅÏúºÎ°ú Î≥µÍµ¨ÎêòÏóàÏäµÎãàÎã§.", "Ê≠£Â∏∏„Å´Âæ©Íµ¨ÎêòÏóàÏäµÎãàÎã§.", "ÊàêÂäüÊÅ¢Â§ç„ÄÇ" }
+            };
+
+            if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
+            return key;
         }
 
-        private void ShowForm()
+        private void ChangeLanguage(int index)
         {
-            this.Show();
-            this.WindowState = FormWindowState.Normal;
-            this.Activate();
+            currentLangIndex = index;
+            UpdateUITexts();
         }
 
-        private void ExitApp()
+        private void UpdateUITexts()
         {
-            monitorTimer.Stop();
-            trayIcon.Visible = false;
-            Application.Exit(); // ¡¯¬• ¡æ∑·
+            // Ìó§Îçî Î∞è Î©îÎâ¥ Í∞±Ïã† Î°úÏßÅ (Í∞ÑÎûµÌôîÎêú ÏòàÏãú)
+            this.Text = $"Process Guardian Professional ({GetStr("Title")})";
+            // ... Í∞Å Ïª®Ìä∏Î°§Ïùò TextÎ•º GetStrÎ°ú Í∞±Ïã†ÌïòÎäî Î°úÏßÅ Ï∂îÍ∞Ä Í∞ÄÎä•
         }
+    }
+
+    internal class CustomColorTable : ProfessionalColorTable
+    {
+        public override Color ToolStripDropDownBackground => Color.FromArgb(45, 45, 48);
+        public override Color MenuBorder => Color.FromArgb(60, 60, 60);
+        public override Color MenuItemSelected => Color.FromArgb(62, 62, 64);
+        public override Color MenuItemSelectedGradientBegin => Color.FromArgb(62, 62, 64);
+        public override Color MenuItemSelectedGradientEnd => Color.FromArgb(62, 62, 64);
+        public override Color MenuItemBorder => Color.FromArgb(0, 122, 204);
     }
 }

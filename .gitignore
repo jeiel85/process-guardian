@@ -32,10 +32,7 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
-dist/
-dist_slim/
-dist_standalone/
-dist_standalone_optimized/
+dist*/
 releases/
 
 # Visual Studio 2015/2017 cache/options directory

@@ -197,59 +197,173 @@
             h1 { font-size: 2.5rem; }
             .stats { flex-direction: column; gap: 32px; }
         }
+
+        .lang-switcher {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .lang-switcher select {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div class="gradient-bg"></div>
+    <div class="lang-switcher">
+        <select id="langSelect" onchange="changeLang(this.value)">
+            <option value="en">English</option>
+            <option value="ko">한국어</option>
+            <option value="ja">日本語</option>
+            <option value="zh">简体中文</option>
+        </select>
+    </div>
 
     <div class="container">
         <header>
             <img src="assets/logo.png" alt="Process Guardian" class="logo">
-            <h1>Process Guardian</h1>
-            <p class="subtitle">Keep your essential applications alive. Automate recovery, minimize downtime, and ensure system stability with professional precision.</p>
+            <h1 id="mainTitle">Process Guardian</h1>
+            <p class="subtitle" id="mainSubtitle">Keep your essential applications alive. Automate recovery, minimize downtime, and ensure system stability with professional precision.</p>
             <div class="cta-group">
-                <a href="https://github.com/jeiel85/process-guardian/releases" class="btn btn-primary">Download Slim EXE</a>
-                <a href="https://github.com/jeiel85/process-guardian" class="btn btn-secondary">View Repository</a>
+                <a href="https://github.com/jeiel85/process-guardian/releases" class="btn btn-primary" id="btnDownload">Download Slim EXE</a>
+                <a href="https://github.com/jeiel85/process-guardian" class="btn btn-secondary" id="btnView">View Repository</a>
             </div>
         </header>
 
         <section class="stats">
             <div class="stat-item">
                 <span class="stat-value">169 KB</span>
-                <span class="stat-label">Binary Size</span>
+                <span class="stat-label" id="labelSize">Binary Size</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value">4+</span>
-                <span class="stat-label">Languages Supported</span>
+                <span class="stat-label" id="labelSupport">Languages Supported</span>
             </div>
             <div class="stat-item">
                 <span class="stat-value">3s</span>
-                <span class="stat-label">Check Interval</span>
+                <span class="stat-label" id="labelInterval">Check Interval</span>
             </div>
         </section>
 
         <section class="features">
             <div class="feature-card">
                 <div class="feature-icon">🛡️</div>
-                <h3>Real-time Recovery</h3>
-                <p>Detects application crashes instantly and restarts them within 3 seconds to ensure 24/7 uptime.</p>
+                <h3 id="f1Title">Real-time Recovery</h3>
+                <p id="f1Desc">Detects application crashes instantly and restarts them within 3 seconds to ensure 24/7 uptime.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🌐</div>
-                <h3>Global Ready</h3>
-                <p>Fully localized in English, Korean, Japanese, and Chinese. Supports automatic system language detection.</p>
+                <h3 id="f2Title">Global Ready</h3>
+                <p id="f2Desc">Fully localized in English, Korean, Japanese, and Chinese. Supports automatic system language detection.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">💎</div>
-                <h3>Modern Dark UI</h3>
-                <p>A sleek, professional dashboard inspired by modern Windows 11 aesthetics. High visibility LED indicators.</p>
+                <h3 id="f3Title">Modern Dark UI</h3>
+                <p id="f3Desc">A sleek, professional dashboard inspired by modern Windows 11 aesthetics. High visibility LED indicators.</p>
             </div>
         </section>
 
         <footer>
-            <p>&copy; 2026 Process Guardian. Distributed under the MIT License.</p>
-            <p style="margin-top: 8px;">Developed with passion for stability and performance.</p>
+            <p id="footerText">&copy; 2026 Process Guardian. Distributed under the MIT License.</p>
+            <p style="margin-top: 8px;" id="footerFinal">Developed with passion for stability and performance.</p>
         </footer>
     </div>
+
+    <script>
+        const i18n = {
+            en: {
+                mainTitle: "Process Guardian",
+                mainSubtitle: "Keep your essential applications alive. Automate recovery, minimize downtime, and ensure system stability with professional precision.",
+                btnDownload: "Download Slim EXE",
+                btnView: "View Repository",
+                labelSize: "Binary Size",
+                labelSupport: "Languages Supported",
+                labelInterval: "Check Interval",
+                f1Title: "Real-time Recovery",
+                f1Desc: "Detects application crashes instantly and restarts them within 3 seconds to ensure 24/7 uptime.",
+                f2Title: "Global Ready",
+                f2Desc: "Fully localized in English, Korean, Japanese, and Chinese. Supports automatic system language detection.",
+                f3Title: "Modern Dark UI",
+                f3Desc: "A sleek, professional dashboard inspired by modern Windows 11 aesthetics. High visibility LED indicators.",
+                footerText: "&copy; 2026 Process Guardian. Distributed under the MIT License.",
+                footerFinal: "Developed with passion for stability and performance."
+            },
+            ko: {
+                mainTitle: "Process Guardian",
+                mainSubtitle: "중요한 프로그램을 안전하게 보호하세요. 자동 복구로 다운타임을 최소화하고 상용 수준의 시스템 안정성을 확보합니다.",
+                btnDownload: "EXE 다운로드 (초경량)",
+                btnView: "저장소 보기",
+                labelSize: "바이너리 용량",
+                labelSupport: "다국어 지원",
+                labelInterval: "체크 주기",
+                f1Title: "실시간 자동 복구",
+                f1Desc: "프로그램 종료를 즉시 감지하고 3초 내에 재실행하여 24시간 가동을 보장합니다.",
+                f2Title: "글로벌 대응",
+                f2Desc: "한/영/중/일 4개 국어를 완벽 지원하며, 시스템 언어를 자동으로 감지합니다.",
+                f3Title: "현대적인 다크 UI",
+                f3Desc: "윈도우 11 기반의 세련된 다크 대시보드와 선명한 LED 상태 알림을 제공합니다.",
+                footerText: "&copy; 2026 Process Guardian. MIT 라이선스 배포.",
+                footerFinal: "안정성과 성능을 향한 열정으로 개발되었습니다."
+            },
+            ja: {
+                mainTitle: "Process Guardian",
+                mainSubtitle: "重要なアプリケーションを保護します。自動復旧でダウンタイムを最小限に抑え、システム安定性を実現します。",
+                btnDownload: "ダウンロード (169KB)",
+                btnView: "リポジトリを見る",
+                labelSize: "バイナリサイズ",
+                labelSupport: "サポート言語",
+                labelInterval: "チェック間隔",
+                f1Title: "リアルタイム復旧",
+                f1Desc: "アプリのクラッシュを瞬時に検出し、3秒以内に再起動して連続稼働を保証します。",
+                f2Title: "グローバル対応",
+                f2Desc: "日本語、韓国語、英語、中国語に対応。システム言語を自動的に検出します。",
+                f3Title: "モダンなダークUI",
+                f3Desc: "Windows 11にイン스パイアされた洗練されたダッシュボードとLEDインジケータを提供します。",
+                footerText: "&copy; 2026 Process Guardian. MITライセンス配布。",
+                footerFinal: "安定性とパフォーマンスのために開発されました。"
+            },
+            zh: {
+                mainTitle: "Process Guardian",
+                mainSubtitle: "保护您的重要应用程序。通过自动化恢复最大限度地减少停机时间，确保系统稳定性。",
+                btnDownload: "下载执行文件 (169KB)",
+                btnView: "查看仓库",
+                labelSize: "二进制大小",
+                labelSupport: "支持语言",
+                labelInterval: "检查间隔",
+                f1Title: "实时恢复",
+                f1Desc: "即时检测程序崩溃并在3秒内重新启动，确保全天候运行。",
+                f2Title: "全球支持",
+                f2Desc: "完全支持中文、韩文、英文和日文。支持自动系统语言检测。",
+                f3Title: "现代深色 UI",
+                f3Desc: "受现代 Windows 11 美学启发的专业控制面板，配备高可见度 LED 指示灯。",
+                footerText: "&copy; 2026 Process Guardian. 采用 MIT 许可证发布。",
+                footerFinal: "热衷于稳定性和性能开发。"
+            }
+        };
+
+        function changeLang(lang) {
+            const data = i18n[lang];
+            for (let key in data) {
+                const el = document.getElementById(key);
+                if (el) el.innerHTML = data[key];
+            }
+            document.documentElement.lang = lang;
+        }
+
+        // Auto detect language
+        window.addEventListener('load', () => {
+            const userLang = navigator.language.split('-')[0];
+            const targetLang = i18n[userLang] ? userLang : 'en';
+            document.getElementById('langSelect').value = targetLang;
+            changeLang(targetLang);
+        });
+    </script>
 </body>
 </html>

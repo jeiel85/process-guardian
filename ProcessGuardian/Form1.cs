@@ -160,6 +160,33 @@ namespace ProcessGuardian
             this.Controls.Add(lblLang);
             this.Controls.Add(comboLang);
 
+            // 인터벌 설정 UI
+            Label lblInterval = new Label
+            {
+                Text = "Interval (sec):",
+                Location = new Point(210, 535),
+                AutoSize = true,
+                ForeColor = Color.Gray,
+                Font = new Font("Segoe UI", 8F)
+            };
+            NumericUpDown numInterval = new NumericUpDown
+            {
+                Location = new Point(300, 532),
+                Width = 50,
+                Minimum = 1,
+                Maximum = 60,
+                Value = monitorTimer.Interval / 1000,
+                BackColor = ColorCard,
+                ForeColor = ColorText,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            numInterval.ValueChanged += (s, e) => {
+                monitorTimer.Interval = (int)numInterval.Value * 1000;
+            };
+
+            this.Controls.Add(lblInterval);
+            this.Controls.Add(numInterval);
+
             // 트레이 아이콘 및 메뉴
             trayMenu = new ContextMenuStrip();
             trayMenu.Renderer = new ToolStripProfessionalRenderer(new CustomColorTable()); // 다크 테마 메뉴

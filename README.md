@@ -49,7 +49,7 @@
 GitHub Releases에서 환경에 맞는 파일을 선택하세요:
 
 - **Slim 버전 (`ProcessGuardian_v1.2.0_Slim.exe`)**: 용량이 매우 작지만 실행을 위해 [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)이 필요합니다. (권장)
-- **Standalone 버전 (`ProcessGuardian_v1.2.0_Standalone.exe`)**: 용량은 크지만(약 160MB), 런타임 설치 없이 모든 PC에서 즉시 실행됩니다.
+- **Standalone 버전 (`ProcessGuardian_v1.2.0_Standalone.exe`)**: 용량은 크지만(약 71MB), 런타임 설치 없이 모든 PC에서 즉시 실행됩니다.
 
 ## 🛠️ Built With
 

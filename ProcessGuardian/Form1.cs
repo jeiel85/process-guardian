@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -10,20 +10,25 @@ namespace ProcessGuardian
 {
     public partial class Form1 : Form
     {
-        // 현대적인 상용 디자인 컬러 테마 (Mockup 기반 업그레이드)
-        private static readonly Color ColorBackground = Color.FromArgb(18, 18, 20); // 더 깊은 다크 톤
-        private static readonly Color ColorCard = Color.FromArgb(30, 30, 35);       // 세련된 그래파이트
-        private static readonly Color ColorAccent = Color.FromArgb(37, 99, 235);    // 프리미엄 블루
+        private static readonly Color ColorBackground = Color.FromArgb(18, 18, 20); 
+        private static readonly Color ColorCard = Color.FromArgb(30, 30, 35);       
+        private static readonly Color ColorAccent = Color.FromArgb(37, 99, 235);    
         private static readonly Color ColorText = Color.FromArgb(248, 250, 252);
-        private static readonly Color ColorStatusRunning = Color.FromArgb(34, 197, 94); // 선명한 그린
-        private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);  // 선명한 레드
-        private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11); // 오렌지
+        private static readonly Color ColorStatusRunning = Color.FromArgb(34, 197, 94); 
+        private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);  
+        private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11); 
 
         private Panel[] slotCards;
         private TextBox[] pathBoxes;
         private Label[] statusLeds;
         private Label[] statusTexts;
+        private Label[] slotLabels;
         private Button[] browseButtons;
+
+        private Label lblLang;
+        private Label lblInterval;
+        private ToolStripMenuItem trayOpenItem;
+        private ToolStripMenuItem trayExitItem;
 
         private NotifyIcon trayIcon;
         private ContextMenuStrip trayMenu;
@@ -35,6 +40,7 @@ namespace ProcessGuardian
             InitializeModernUI(); 
             LoadSettings();       
             StartMonitoring();    
+            UpdateUITexts(); 
         }
 
         private void InitializeModernUI()
@@ -57,6 +63,7 @@ namespace ProcessGuardian
             pathBoxes = new TextBox[5];
             statusLeds = new Label[5];
             statusTexts = new Label[5];
+            slotLabels = new Label[5];
             browseButtons = new Button[5];
 
             for (int i = 0; i < 5; i++)
@@ -67,33 +74,32 @@ namespace ProcessGuardian
                 statusLeds[i] = new Label { Location = new Point(18, 18), Size = new Size(14, 14), BackColor = Color.Transparent, Tag = "stopped" };
                 statusLeds[i].Paint += StatusLed_Paint;
                 
-                Label lblSlot = new Label { Text = $"MONITOR SLOT {i + 1}", Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true };
+                slotLabels[i] = new Label { Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true };
                 statusTexts[i] = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 140 };
                 pathBoxes[i] = new TextBox { Location = new Point(18, 48), Width = 400, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
 
-                Button btnSelect = new Button { Text = "Browse", Location = new Point(428, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
-                btnSelect.FlatAppearance.BorderSize = 0;
-                btnSelect.Click += BtnSelect_Click;
-                btnSelect.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
-                btnSelect.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
+                browseButtons[i] = new Button { Text = "Browse", Location = new Point(428, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
+                browseButtons[i].FlatAppearance.BorderSize = 0;
+                browseButtons[i].Click += BtnSelect_Click;
+                browseButtons[i].MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
+                browseButtons[i].MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
 
                 card.Controls.Add(statusLeds[i]);
-                card.Controls.Add(lblSlot);
+                card.Controls.Add(slotLabels[i]);
                 card.Controls.Add(statusTexts[i]);
                 card.Controls.Add(pathBoxes[i]);
-                card.Controls.Add(btnSelect);
+                card.Controls.Add(browseButtons[i]);
                 this.Controls.Add(card);
                 slotCards[i] = card;
-                browseButtons[i] = btnSelect;
             }
 
-            Label lblLang = new Label { Text = "Language:", Location = new Point(25, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            ComboBox comboLang = new ComboBox { Location = new Point(90, 602), Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
+            lblLang = new Label { Location = new Point(25, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            ComboBox comboLang = new ComboBox { Location = new Point(100, 602), Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
             comboLang.Items.AddRange(new string[] { "English", "한국어", "日本語", "简体中文" });
             comboLang.SelectedIndex = 0;
             comboLang.SelectedIndexChanged += (s, e) => ChangeLanguage(comboLang.SelectedIndex);
 
-            Label lblInterval = new Label { Text = "Interval (sec):", Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            lblInterval = new Label { Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
             NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 50, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numInterval.ValueChanged += (s, e) => { if (monitorTimer != null) monitorTimer.Interval = (int)numInterval.Value * 1000; };
 
@@ -103,10 +109,12 @@ namespace ProcessGuardian
             this.Controls.Add(numInterval);
 
             trayMenu = new ContextMenuStrip();
-            trayMenu.Renderer = new ToolStripProfessionalRenderer(new CustomColorTable()); 
-            trayMenu.Items.Add("Open Dashboard", null, (s, e) => ShowForm());
+            trayMenu.Renderer = new DarkModeRenderer(); 
+            trayOpenItem = new ToolStripMenuItem("Open Dashboard", null, (s, e) => ShowForm());
+            trayExitItem = new ToolStripMenuItem("Exit Guardian", null, (s, e) => ExitApp());
+            trayMenu.Items.Add(trayOpenItem);
             trayMenu.Items.Add(new ToolStripSeparator());
-            trayMenu.Items.Add("Exit Guardian", null, (s, e) => ExitApp());
+            trayMenu.Items.Add(trayExitItem);
 
             trayIcon = new NotifyIcon();
             trayIcon.Text = "Process Guardian Pro";
@@ -131,7 +139,7 @@ namespace ProcessGuardian
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     pathBoxes[index].Text = ofd.FileName;
-                    statusTexts[index].Text = "LOADED";
+                    statusTexts[index].Text = GetStr("Loaded");
                     statusLeds[index].Tag = "warning";
                     statusLeds[index].Invalidate();
                     SaveSettings();
@@ -150,13 +158,30 @@ namespace ProcessGuardian
             for (int i = 0; i < 5; i++)
             {
                 string path = pathBoxes[i].Text;
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) { statusLeds[i].Tag = "idle"; statusLeds[i].Invalidate(); statusTexts[i].Text = "EMPTY"; statusTexts[i].ForeColor = Color.FromArgb(80, 80, 90); continue; }
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) { 
+                    statusLeds[i].Tag = "idle"; 
+                    statusLeds[i].Invalidate(); 
+                    statusTexts[i].Text = GetStr("Empty"); 
+                    statusTexts[i].ForeColor = Color.FromArgb(80, 80, 90); 
+                    continue; 
+                }
                 string processName = Path.GetFileNameWithoutExtension(path);
                 Process[] processes = Process.GetProcessesByName(processName);
-                if (processes.Length > 0) { statusLeds[i].Tag = "running"; statusLeds[i].Invalidate(); statusTexts[i].Text = "RUNNING"; statusTexts[i].ForeColor = ColorStatusRunning; }
+                if (processes.Length > 0) { 
+                    statusLeds[i].Tag = "running"; 
+                    statusLeds[i].Invalidate(); 
+                    statusTexts[i].Text = GetStr("Running"); 
+                    statusTexts[i].ForeColor = ColorStatusRunning; 
+                }
                 else {
-                    statusLeds[i].Tag = "stopped"; statusLeds[i].Invalidate(); statusTexts[i].Text = "RESTARTING..."; statusTexts[i].ForeColor = ColorStatusStopped;
-                    try { Process.Start(path); trayIcon.ShowBalloonTip(1000, "Guardian Alert", $" recovered successfully.", ToolTipIcon.Warning); }
+                    statusLeds[i].Tag = "stopped"; 
+                    statusLeds[i].Invalidate(); 
+                    statusTexts[i].Text = GetStr("Restarting"); 
+                    statusTexts[i].ForeColor = ColorStatusStopped;
+                    try { 
+                        Process.Start(path); 
+                        trayIcon.ShowBalloonTip(1000, "Guardian Alert", $" " + GetStr("Recovered"), ToolTipIcon.Warning); 
+                    }
                     catch (Exception ex) { Debug.WriteLine($"Recovery Error: {ex.Message}"); statusTexts[i].Text = "ERROR"; }
                 }
             }
@@ -200,14 +225,33 @@ namespace ProcessGuardian
                 ["Stopped"] = new[] { "STOPPED", "중지됨", "停止中", "已停止" },
                 ["Restarting"] = new[] { "RESTARTING...", "재시작 중...", "再起動中...", "正在重启..." },
                 ["Empty"] = new[] { "EMPTY", "비어 있음", "空", "空" },
-                ["Recovered"] = new[] { "recovered successfully.", "성공적으로 복구되었습니다.", "正常에 復구되었습니다.", "成功恢复。" }
+                ["Recovered"] = new[] { "recovered successfully.", "성공적으로 복구되었습니다.", "正常에 復구되었습니다.", "成功恢复。" },
+                ["Open"] = new[] { "Open Dashboard", "대시보드 열기", "ダッシュボードを開く", "打开仪表板" },
+                ["Exit"] = new[] { "Exit Guardian", "프로그램 종료", "ガー디안 종료", "退出" },
+                ["Loaded"] = new[] { "LOADED", "로드됨", "ロード済み", "已加载" },
+                ["Lang"] = new[] { "Language:", "언어 설정:", "言語設定:", "语言设置:" },
+                ["Interval"] = new[] { "Interval (sec):", "간격 (초):", "間隔 (秒):", "间隔 (秒):" }
             };
             if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
             return key;
         }
 
         private void ChangeLanguage(int index) { currentLangIndex = index; UpdateUITexts(); }
-        private void UpdateUITexts() { this.Text = "Process Guardian Professional"; }
+        
+        private void UpdateUITexts() 
+        { 
+            this.Text = GetStr("Title"); 
+            lblLang.Text = GetStr("Lang");
+            lblInterval.Text = GetStr("Interval");
+            trayOpenItem.Text = GetStr("Open");
+            trayExitItem.Text = GetStr("Exit");
+
+            for (int i = 0; i < 5; i++)
+            {
+                slotLabels[i].Text = $"{GetStr("Slot")} {i + 1}";
+                browseButtons[i].Text = GetStr("Browse");
+            }
+        }
 
         private void Card_Paint(object sender, PaintEventArgs e)
         {
@@ -249,6 +293,12 @@ namespace ProcessGuardian
             path.CloseFigure();
             return path;
         }
+    }
+
+    internal class DarkModeRenderer : ToolStripProfessionalRenderer
+    {
+        public DarkModeRenderer() : base(new CustomColorTable()) { }
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) { e.TextColor = Color.White; base.OnRenderItemText(e); }
     }
 
     internal class CustomColorTable : ProfessionalColorTable

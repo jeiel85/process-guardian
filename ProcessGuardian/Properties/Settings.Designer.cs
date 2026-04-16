@@ -142,5 +142,53 @@ namespace ProcessGuardian.Properties {
                 this["LogFilePath"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string WebhookUrl {
+            get {
+                return ((string)(this["WebhookUrl"]));
+            }
+            set {
+                this["WebhookUrl"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("false")]
+        public bool UseWindowsEventLog {
+            get {
+                return ((bool)(this["UseWindowsEventLog"]));
+            }
+            set {
+                this["UseWindowsEventLog"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("false")]
+        public bool UseHangDetection {
+            get {
+                return ((bool)(this["UseHangDetection"]));
+            }
+            set {
+                this["UseHangDetection"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        public int HangTimeoutSec {
+            get {
+                return ((int)(this["HangTimeoutSec"]));
+            }
+            set {
+                this["HangTimeoutSec"] = value;
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Net.Http;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Threading;
@@ -43,6 +44,11 @@ namespace ProcessGuardian
         private int monitoringInterval = 3000;
         private int memoryThresholdMB = 2048;
         private string logFilePath = "";
+        private string webhookUrl = "";
+        private bool useWindowsEventLog = false;
+        private bool useHangDetection = false;
+        private int hangTimeoutSec = 30;
+        private Dictionary<string, DateTime> lastResponseTime = new Dictionary<string, DateTime>();
 
         public Form1()
         {
@@ -70,7 +76,7 @@ namespace ProcessGuardian
         private void InitializeModernUI()
         {
             this.Text = "Process Guardian Professional";
-            this.Size = new Size(620, 870); 
+            this.Size = new Size(620, 920); 
             this.BackColor = ColorBackground;
             this.ForeColor = ColorText;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -136,16 +142,47 @@ namespace ProcessGuardian
             this.Controls.Add(lblMemThreshold);
             this.Controls.Add(numMemThreshold);
 
-            CheckBox chkAutoStart = new CheckBox { Text = "Auto Start", Location = new Point(460, 602), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            // 추가 설정 컨트롤들
+            CheckBox chkAutoStart = new CheckBox { Text = GetStr("AutoStart"), Location = new Point(25, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
             chkAutoStart.Checked = IsAutoStartEnabled();
             chkAutoStart.CheckedChanged += (s, e) => SetAutoStart(chkAutoStart.Checked);
             this.Controls.Add(chkAutoStart);
+
+            CheckBox chkWinEventLog = new CheckBox { Text = GetStr("WinEventLog"), Location = new Point(120, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            chkWinEventLog.Checked = useWindowsEventLog;
+            chkWinEventLog.CheckedChanged += (s, e) => { useWindowsEventLog = chkWinEventLog.Checked; Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog; };
+            this.Controls.Add(chkWinEventLog);
+
+            CheckBox chkHangDetect = new CheckBox { Text = GetStr("HangDetect"), Location = new Point(230, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            chkHangDetect.Checked = useHangDetection;
+            chkHangDetect.CheckedChanged += (s, e) => { useHangDetection = chkHangDetect.Checked; Properties.Settings.Default.UseHangDetection = useHangDetection; };
+            this.Controls.Add(chkHangDetect);
+
+            // Webhook URL 입력
+            Label lblWebhook = new Label { Text = "Webhook:", Location = new Point(330, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            TextBox txtWebhook = new TextBox { Text = webhookUrl, Location = new Point(390, 626), Width = 160, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8F) };
+            txtWebhook.Leave += (s, e) => { webhookUrl = txtWebhook.Text; Properties.Settings.Default.WebhookUrl = webhookUrl; };
+            this.Controls.Add(lblWebhook);
+            this.Controls.Add(txtWebhook);
 
             trayMenu = new ContextMenuStrip();
             trayMenu.Renderer = new DarkModeRenderer(); 
             trayOpenItem = new ToolStripMenuItem("Open Dashboard", null, (s, e) => ShowForm());
             trayExitItem = new ToolStripMenuItem("Exit Guardian", null, (s, e) => ExitApp());
+            // 설정 메뉴
+            ToolStripMenuItem traySettingsItem = new ToolStripMenuItem(GetStr("Settings"));
+            ToolStripMenuItem menuExport = new ToolStripMenuItem(GetStr("Export"), null, (s, e) => ExportSettings());
+            ToolStripMenuItem menuImport = new ToolStripMenuItem(GetStr("Import"), null, (s, e) => ImportSettings());
+            ToolStripMenuItem menuProfile = new ToolStripMenuItem(GetStr("Profile"));
+            
+            traySettingsItem.DropDownItems.Add(menuExport);
+            traySettingsItem.DropDownItems.Add(menuImport);
+            traySettingsItem.DropDownItems.Add(new ToolStripSeparator());
+            traySettingsItem.DropDownItems.Add(menuProfile);
+            
             trayMenu.Items.Add(trayOpenItem);
+            trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add(traySettingsItem);
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add(trayExitItem);
 
@@ -402,10 +439,61 @@ protected override void OnFormClosing(FormClosingEventArgs e)
 
                         if (memMB > memoryThresholdMB) {
                              Log($"[Watchdog] Resource Alert: {Path.GetFileName(slot.Path)} memory usage is high ({memMB}MB).", ColorStatusWarning);
+                             WriteToWindowsEventLog($"Memory warning: {Path.GetFileName(slot.Path)} using {memMB}MB");
+                        }
+
+                        // Hang Detection: UI 스레드가 응답하는지 확인
+                        if (slot.IsHangDetectionEnabled && useHangDetection) {
+                            bool responding = CheckProcessResponding(proc);
+                            slot.IsResponding = responding;
+                            if (!responding) {
+                                Log($"[Hang Detection] {Path.GetFileName(slot.Path)} is not responding!", ColorStatusStopped);
+                                WriteToWindowsEventLog($"Process hang detected: {Path.GetFileName(slot.Path)}");
+                                SendWebhookAlert($"⚠ Hang Detected: {Path.GetFileName(slot.Path)} is not responding");
+                            }
                         }
                     }
                 }
             } catch { }
+        }
+
+        private bool CheckProcessResponding(Process process)
+        {
+            try {
+                if (process.HasExited) return false;
+                // 메인 창이 응답하는지 확인 (WM_NULL 메시지 응답 확인)
+                if (process.MainWindowHandle != IntPtr.Zero) {
+                    return NativeMethods.SendMessageTimeout(process.MainWindowHandle, NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero, NativeMethods.SMTO_ABORTIFHUNG, (uint)hangTimeoutSec * 1000, out _);
+                }
+                return true; // 창이 없으면 응답으로 간주
+            } catch { return false; }
+        }
+
+        private void WriteToWindowsEventLog(string message)
+        {
+            if (!useWindowsEventLog) return;
+            try {
+                string source = "Process Guardian";
+                if (!EventLog.SourceExists(source)) {
+                    EventLog.CreateEventSource(source, "Application");
+                }
+                EventLog.WriteEntry(source, message, EventLogEntryType.Warning);
+            } catch { }
+        }
+
+        private async void SendWebhookAlert(string message)
+        {
+            if (string.IsNullOrEmpty(webhookUrl)) return;
+            try {
+                using var client = new HttpClient();
+                var payload = new { text = message };
+                var json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                await client.PostAsync(webhookUrl, content);
+                Log($"[Webhook] Alert sent: {message}");
+            } catch (Exception ex) {
+                Log($"[Webhook] Failed: {ex.Message}", ColorStatusStopped);
+            }
         }
 
         private void LogToFile(string message)
@@ -470,8 +558,77 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 Properties.Settings.Default.MonitoringInterval = monitoringInterval / 1000;
                 Properties.Settings.Default.MemoryThresholdMB = memoryThresholdMB;
                 Properties.Settings.Default.LogFilePath = logFilePath;
+                Properties.Settings.Default.WebhookUrl = webhookUrl;
+                Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog;
+                Properties.Settings.Default.UseHangDetection = useHangDetection;
                 Properties.Settings.Default.Save();
             } catch { }
+        }
+
+        private void ExportSettings()
+        {
+            try {
+                SaveFileDialog sfd = new SaveFileDialog { Filter = "JSON files (*.json)|*.json", FileName = "ProcessGuardian_Config.json" };
+                if (sfd.ShowDialog() == DialogResult.OK) {
+                    var config = new {
+                        version = "1.4.0",
+                        slots = slots.Select(s => new { path = s.Path, args = s.Args }).ToList(),
+                        monitoringInterval = monitoringInterval / 1000,
+                        memoryThresholdMB = memoryThresholdMB,
+                        webhookUrl = webhookUrl,
+                        useWindowsEventLog = useWindowsEventLog,
+                        useHangDetection = useHangDetection
+                    };
+                    string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(sfd.FileName, json);
+                    Log($"Settings exported to {Path.GetFileName(sfd.FileName)}");
+                }
+            } catch (Exception ex) {
+                Log($"Export failed: {ex.Message}", ColorStatusStopped);
+            }
+        }
+
+        private void ImportSettings()
+        {
+            try {
+                OpenFileDialog ofd = new OpenFileDialog { Filter = "JSON files (*.json)|*.json" };
+                if (ofd.ShowDialog() == DialogResult.OK) {
+                    string json = File.ReadAllText(ofd.FileName);
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    
+                    // 슬롯 로드
+                    if (root.TryGetProperty("slots", out var slotsElem)) {
+                        foreach (var slot in slots) {
+                            if (slot.Card != null) flowSlots.Controls.Remove(slot.Card);
+                        }
+                        slots.Clear();
+                        
+                        foreach (var slotElem in slotsElem.EnumerateArray()) {
+                            string path = slotElem.GetProperty("path").GetString() ?? "";
+                            string args = slotElem.TryGetProperty("args", out var argsProp) ? argsProp.GetString() ?? "" : "";
+                            AddNewSlot(path, args);
+                        }
+                    }
+                    
+                    // 설정 로드
+                    if (root.TryGetProperty("monitoringInterval", out var interval))
+                        monitoringInterval = interval.GetInt32() * 1000;
+                    if (root.TryGetProperty("memoryThresholdMB", out var memThreshold))
+                        memoryThresholdMB = memThreshold.GetInt32();
+                    if (root.TryGetProperty("webhookUrl", out var webhook))
+                        webhookUrl = webhook.GetString() ?? "";
+                    if (root.TryGetProperty("useWindowsEventLog", out var winLog))
+                        useWindowsEventLog = winLog.GetBoolean();
+                    if (root.TryGetProperty("useHangDetection", out var hangDetect))
+                        useHangDetection = hangDetect.GetBoolean();
+                    
+                    SaveSettings();
+                    Log($"Settings imported from {Path.GetFileName(ofd.FileName)}");
+                }
+            } catch (Exception ex) {
+                Log($"Import failed: {ex.Message}", ColorStatusStopped);
+            }
         }
 
         private void Log(string message, Color? color = null)
@@ -491,8 +648,16 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         private bool IsAutoStartEnabled()
         {
             try {
-                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) { return key?.GetValue("ProcessGuardian") != null; }
-            } catch { return false; }
+                // HKCU (현재 사용자)
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) { 
+                    if (key?.GetValue("ProcessGuardian") != null) return true; 
+                }
+                // HKLM (시스템 전체 - 관리자용)
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) {
+                    if (key?.GetValue("ProcessGuardian") != null) return true;
+                }
+            } catch { }
+            return false;
         }
 
         private void SetAutoStart(bool enable)
@@ -502,8 +667,26 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                     if (enable) key?.SetValue("ProcessGuardian", $"\"{Application.ExecutablePath}\"");
                     else key?.DeleteValue("ProcessGuardian", false);
                 }
-                Log(enable ? "Auto-start enabled." : "Auto-start disabled.");
+                Log(enable ? "Auto-start enabled (Current User)." : "Auto-start disabled.");
             } catch (Exception ex) { Log($"Failed to set auto-start: {ex.Message}", ColorStatusStopped); }
+        }
+
+        /// <summary>
+        /// 관리자 권한으로 시스템 전체 자동 시작 설정 (HKLM)
+        /// </summary>
+        private void SetSystemAutoStart(bool enable)
+        {
+            if (!isAdmin) {
+                Log("Administrator privileges required for system-wide auto-start.", ColorStatusWarning);
+                return;
+            }
+            try {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
+                    if (enable) key?.SetValue("ProcessGuardian", $"\"{Application.ExecutablePath}\"");
+                    else key?.DeleteValue("ProcessGuardian", false);
+                }
+                Log(enable ? "System-wide auto-start enabled." : "System-wide auto-start disabled.");
+            } catch (Exception ex) { Log($"Failed to set system auto-start: {ex.Message}", ColorStatusStopped); }
         }
 
         private void ShowForm() { this.Show(); this.WindowState = FormWindowState.Normal; this.Activate(); }
@@ -528,7 +711,14 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 ["Loaded"] = new[] { "LOADED", "로드됨", "ロード済み", "已加载" },
                 ["Lang"] = new[] { "Language:", "언어 설정:", "言語設定:", "语言设置:" },
                 ["Interval"] = new[] { "Interval (sec):", "간격 (초):", "間隔 (秒):", "间隔 (秒):" },
-                ["MemThreshold"] = new[] { "Memory (MB):", "메모리 (MB):", "メモリ (MB):", "内存 (MB):" }
+                ["MemThreshold"] = new[] { "Memory (MB):", "메모리 (MB):", "メモリ (MB):", "Memory (MB):" },
+                ["AutoStart"] = new[] { "Auto Start:", "자동 시작:", "自動開始:", "Auto Start:" },
+                ["WinEventLog"] = new[] { "Event Log:", "이벤트 로그:", "イベントログ:", "Event Log:" },
+                ["HangDetect"] = new[] { "Hang Detect:", "응답 감지:", "応答検出:", "Hang Detect:" },
+                ["Export"] = new[] { "Export Settings", "설정 내보내기", "設定エクスポート", "Export" },
+                ["Import"] = new[] { "Import Settings", "설정 가져오기", "設定インポート", "Import" },
+                ["Settings"] = new[] { "Settings", "설정", "設定", "Settings" },
+                ["Profile"] = new[] { "Profile", "프로필", "プロファイル", "Profile" }
             };
             if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
             return key;
@@ -604,6 +794,9 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         public bool IsBackingOff { get; set; } = false;
         public long LastMemoryMB { get; set; } = 0;
         public double LastCpuPercent { get; set; } = 0;
+        public bool IsHangDetectionEnabled { get; set; } = false;
+        public DateTime LastResponsivenessCheck { get; set; } = DateTime.MinValue;
+        public bool IsResponding { get; set; } = true;
 
         public Panel? Card { get; set; }
         public Label? Led { get; set; }
@@ -634,5 +827,13 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         public override Color MenuItemSelectedGradientBegin => Color.FromArgb(37, 99, 235);
         public override Color MenuItemSelectedGradientEnd => Color.FromArgb(37, 99, 235);
         public override Color MenuItemBorder => Color.FromArgb(37, 99, 235);
+    }
+
+    internal static class NativeMethods
+    {
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+        public const uint WM_NULL = 0x0000;
+        public const uint SMTO_ABORTIFHUNG = 0x0002;
     }
 }

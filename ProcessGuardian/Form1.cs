@@ -48,6 +48,7 @@ namespace ProcessGuardian
         private bool useWindowsEventLog = false;
         private bool useHangDetection = false;
         private int hangTimeoutSec = 30;
+        private int startupDelaySec = 0;
         private Dictionary<string, DateTime> lastResponseTime = new Dictionary<string, DateTime>();
 
         public Form1()
@@ -157,6 +158,22 @@ namespace ProcessGuardian
             chkHangDetect.Checked = useHangDetection;
             chkHangDetect.CheckedChanged += (s, e) => { useHangDetection = chkHangDetect.Checked; Properties.Settings.Default.UseHangDetection = useHangDetection; };
             this.Controls.Add(chkHangDetect);
+
+            // Hang Timeout 설정
+            Label lblHangTimeout = new Label { Text = GetStr("HangTimeout"), Location = new Point(230, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            NumericUpDown numHangTimeout = new NumericUpDown { Location = new Point(330, 650), Width = 40, Minimum = 5, Maximum = 300, Value = hangTimeoutSec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            numHangTimeout.ValueChanged += (s, e) => { hangTimeoutSec = (int)numHangTimeout.Value; };
+            this.Controls.Add(lblHangTimeout);
+            this.Controls.Add(numHangTimeout);
+
+            // 시작 지연 설정
+            Label lblStartupDelay = new Label { Text = GetStr("StartupDelay"), Location = new Point(380, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            NumericUpDown numStartupDelay = new NumericUpDown { Location = new Point(470, 650), Width = 40, Minimum = 0, Maximum = 300, Value = startupDelaySec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            numStartupDelay.ValueChanged += (s, e) => { startupDelaySec = (int)numStartupDelay.Value; };
+            this.Controls.Add(lblStartupDelay);
+            this.Controls.Add(numStartupDelay);
+
+            this.Size = new Size(620, 970);
 
             // Webhook URL 입력
             Label lblWebhook = new Label { Text = "Webhook:", Location = new Point(330, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
@@ -387,12 +404,32 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try
             {
+                // 시작 전 스크립트 실행
+                if (!string.IsNullOrWhiteSpace(slot.PreScript))
+                {
+                    RunScript(slot.PreScript);
+                }
+
+                // 시작 지연 적용
+                if (startupDelaySec > 0 && slot.FailureCount == 0)
+                {
+                    Log($"Waiting {startupDelaySec}s before starting {Path.GetFileName(slot.Path)}...");
+                    Thread.Sleep(startupDelaySec * 1000);
+                }
+
                 ProcessStartInfo psi = new ProcessStartInfo(slot.Path);
                 if (!string.IsNullOrWhiteSpace(slot.Args))
                 {
                     psi.Arguments = slot.Args;
                 }
                 Process.Start(psi);
+                
+                // 시작 후 스크립트 실행
+                if (!string.IsNullOrWhiteSpace(slot.PostScript))
+                {
+                    RunScript(slot.PostScript);
+                }
+
                 Log($"Recovered: {Path.GetFileName(slot.Path)}", ColorStatusRunning);
                 LogToFile($"Recovered: {Path.GetFileName(slot.Path)}");
                 trayIcon.ShowBalloonTip(1000, "Guardian Alert", $"{Path.GetFileName(slot.Path)} " + GetStr("Recovered"), ToolTipIcon.Warning);
@@ -496,6 +533,28 @@ protected override void OnFormClosing(FormClosingEventArgs e)
             }
         }
 
+        private void RunScript(string scriptPath)
+        {
+            try {
+                if (string.IsNullOrWhiteSpace(scriptPath)) return;
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = scriptPath,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true
+                };
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    string output = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(10000);
+                    Log($"Script executed: {Path.GetFileName(scriptPath)}");
+                }
+            } catch (Exception ex) {
+                Log($"Script failed: {ex.Message}", ColorStatusStopped);
+            }
+        }
+
         private void LogToFile(string message)
         {
             if (string.IsNullOrEmpty(logFilePath)) return;
@@ -511,6 +570,8 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 monitoringInterval = Properties.Settings.Default.MonitoringInterval * 1000;
                 memoryThresholdMB = Properties.Settings.Default.MemoryThresholdMB;
                 logFilePath = Properties.Settings.Default.LogFilePath;
+                hangTimeoutSec = Properties.Settings.Default.HangTimeoutSec;
+                startupDelaySec = Properties.Settings.Default.StartupDelaySec;
 
                 string pathsJson = Properties.Settings.Default.Paths;
                 string argsJson = Properties.Settings.Default.SlotArgs;
@@ -561,6 +622,8 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 Properties.Settings.Default.WebhookUrl = webhookUrl;
                 Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog;
                 Properties.Settings.Default.UseHangDetection = useHangDetection;
+                Properties.Settings.Default.HangTimeoutSec = hangTimeoutSec;
+                Properties.Settings.Default.StartupDelaySec = startupDelaySec;
                 Properties.Settings.Default.Save();
             } catch { }
         }
@@ -690,7 +753,38 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         }
 
         private void ShowForm() { this.Show(); this.WindowState = FormWindowState.Normal; this.Activate(); }
-        private void ExitApp() { cts?.Cancel(); trayIcon.Visible = false; Application.Exit(); }
+        private void ExitApp() 
+        { 
+            // Graceful Shutdown: 감시 중인 모든 프로세스 정리
+            Log("Graceful shutdown initiated...");
+            foreach (var slot in slots)
+            {
+                if (!string.IsNullOrWhiteSpace(slot.Path))
+                {
+                    try
+                    {
+                        string targetName = Path.GetFileNameWithoutExtension(slot.Path);
+                        Process[] procs = Process.GetProcessesByName(targetName);
+                        foreach (var p in procs)
+                        {
+                            if (string.Equals(p.MainModule?.FileName, slot.Path, StringComparison.OrdinalIgnoreCase))
+                            {
+                                p.CloseMainWindow();
+                                if (!p.WaitForExit(5000))
+                                {
+                                    p.Kill();
+                                }
+                                Log($"Terminated: {targetName}");
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            cts?.Cancel(); 
+            trayIcon.Visible = false; 
+            Application.Exit(); 
+        }
 
         private int currentLangIndex = 0; 
 
@@ -718,7 +812,9 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 ["Export"] = new[] { "Export Settings", "설정 내보내기", "設定エクスポート", "Export" },
                 ["Import"] = new[] { "Import Settings", "설정 가져오기", "設定インポート", "Import" },
                 ["Settings"] = new[] { "Settings", "설정", "設定", "Settings" },
-                ["Profile"] = new[] { "Profile", "프로필", "プロファイル", "Profile" }
+                ["Profile"] = new[] { "Profile", "프로필", "プロファイル", "Profile" },
+                ["StartupDelay"] = new[] { "Startup Delay:", "시작 지연:", "起動遅延:", "Startup Delay:" },
+                ["HangTimeout"] = new[] { "Hang Timeout:", "응답 시간:", "応答タイムアウト:", "Hang Timeout:" }
             };
             if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
             return key;
@@ -789,6 +885,8 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         public int Index { get; set; }
         public string Path { get; set; } = "";
         public string Args { get; set; } = "";
+        public string PreScript { get; set; } = "";
+        public string PostScript { get; set; } = "";
         public int FailureCount { get; set; } = 0;
         public DateTime NextCheckTime { get; set; } = DateTime.MinValue;
         public bool IsBackingOff { get; set; } = false;
@@ -797,6 +895,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         public bool IsHangDetectionEnabled { get; set; } = false;
         public DateTime LastResponsivenessCheck { get; set; } = DateTime.MinValue;
         public bool IsResponding { get; set; } = true;
+        public DateTime StartTime { get; set; } = DateTime.MinValue;
 
         public Panel? Card { get; set; }
         public Label? Led { get; set; }

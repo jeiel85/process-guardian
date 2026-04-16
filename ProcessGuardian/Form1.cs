@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Text.Json;
 
 namespace ProcessGuardian
 {
@@ -22,21 +23,21 @@ namespace ProcessGuardian
         private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);  
         private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11); 
 
-        private List<ProcessSlot> slots = new List<ProcessSlot>();
-        private FlowLayoutPanel flowSlots;
-        private Button btnAddSlot;
+        private List<ProcessSlot> slots = new();
+        private FlowLayoutPanel? flowSlots;
+        private Button? btnAddSlot;
 
-        private Label lblLang;
-        private Label lblInterval;
-        private ToolStripMenuItem trayOpenItem;
-        private ToolStripMenuItem trayExitItem;
+        private Label? lblLang;
+        private Label? lblInterval;
+        private ToolStripMenuItem? trayOpenItem;
+        private ToolStripMenuItem? trayExitItem;
 
-        private NotifyIcon trayIcon;
-        private ContextMenuStrip trayMenu;
+        private NotifyIcon? trayIcon;
+        private ContextMenuStrip? trayMenu;
         
         private CancellationTokenSource? cts;
-        private RichTextBox logBox;
-        private Label lblAdminWarn;
+        private RichTextBox? logBox;
+        private Label? lblAdminWarn;
         private bool isAdmin = false;
 
         private int monitoringInterval = 3000;
@@ -175,28 +176,35 @@ namespace ProcessGuardian
             slot.StatusText = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 140 };
             slot.PathBox = new TextBox { Text = path, Location = new Point(18, 48), Width = 380, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
 
-            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(410, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
+            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(410, 45), Width = 50, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
             slot.BrowseBtn.FlatAppearance.BorderSize = 0;
             slot.BrowseBtn.Click += BtnSelect_Click;
-            slot.BrowseBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
-            slot.BrowseBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
+            slot.BrowseBtn.MouseEnter += (s, e) => { if (s is Button b) b.BackColor = Color.FromArgb(50, 110, 250); };
+            slot.BrowseBtn.MouseLeave += (s, e) => { if (s is Button b) b.BackColor = ColorAccent; };
+
+            slot.DeleteBtn = new Button { Text = "✕", Location = new Point(465, 45), Width = 28, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(80, 30, 30), ForeColor = Color.FromArgb(239, 68, 68), Font = new Font("Segoe UI", 10F, FontStyle.Bold), Tag = i };
+            slot.DeleteBtn.FlatAppearance.BorderSize = 0;
+            slot.DeleteBtn.Click += BtnDelete_Click;
+            slot.DeleteBtn.MouseEnter += (s, e) => { if (s is Button b) b.BackColor = Color.FromArgb(120, 40, 40); };
+            slot.DeleteBtn.MouseLeave += (s, e) => { if (s is Button b) b.BackColor = Color.FromArgb(80, 30, 30); };
 
             card.Controls.Add(slot.Led);
             card.Controls.Add(slot.SlotLabel);
             card.Controls.Add(slot.StatusText);
             card.Controls.Add(slot.PathBox);
             card.Controls.Add(slot.BrowseBtn);
+            card.Controls.Add(slot.DeleteBtn);
             
             slot.Card = card;
             slots.Add(slot);
-            flowSlots.Controls.Add(card);
+            flowSlots?.Controls.Add(card);
             
-            if (flowSlots.Controls.Count > 1) Log($"New monitor slot added (Total: {slots.Count})");
+            if ((flowSlots?.Controls.Count ?? 0) > 1) Log($"New monitor slot added (Total: {slots.Count})");
         }
 
-        private void BtnSelect_Click(object sender, EventArgs e)
+        private void BtnSelect_Click(object? sender, EventArgs e)
         {
-            Button btn = sender as Button;
+            if (sender is not Button btn) return;
             int index = (int)btn.Tag;
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
@@ -219,38 +227,80 @@ namespace ProcessGuardian
             }
         }
 
+        private void BtnDelete_Click(object? sender, EventArgs e)
+        {
+            if (sender is not Button btn) return;
+            int index = (int)btn.Tag;
+            if (index < slots.Count)
+            {
+                var slot = slots[index];
+                string removedName = !string.IsNullOrEmpty(slot.Path) ? Path.GetFileName(slot.Path) : "empty slot";
+                
+                // Remove from UI
+                if (slot.Card != null) flowSlots?.Controls.Remove(slot.Card);
+                if (slot.Led != null) slot.Led.Dispose();
+                if (slot.StatusText != null) slot.StatusText.Dispose();
+                if (slot.PathBox != null) slot.PathBox.Dispose();
+                if (slot.BrowseBtn != null) slot.BrowseBtn.Dispose();
+                if (slot.DeleteBtn != null) slot.DeleteBtn.Dispose();
+                if (slot.SlotLabel != null) slot.SlotLabel.Dispose();
+                
+                slots.RemoveAt(index);
+                
+                // Re-index remaining slots
+                for (int i = index; i < slots.Count; i++)
+                {
+                    slots[i].Index = i;
+                    if (slots[i].BrowseBtn != null) slots[i].BrowseBtn.Tag = i;
+                    if (slots[i].DeleteBtn != null) slots[i].DeleteBtn.Tag = i;
+                }
+                
+                SaveSettings();
+                Log($"Slot removed ({removedName}). Remaining: {slots.Count}");
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; this.Hide(); trayIcon.ShowBalloonTip(2000, "Background Mode", "Guardian is still protecting your processes.", ToolTipIcon.Info); }
             base.OnFormClosing(e);
         }
 
+        private string GetSettingsPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "slots.json");
+
         private void LoadSettings()
         {
             try {
-                string[] savedPaths = {
-                    Properties.Settings.Default.Path1,
-                    Properties.Settings.Default.Path2,
-                    Properties.Settings.Default.Path3,
-                    Properties.Settings.Default.Path4,
-                    Properties.Settings.Default.Path5
-                };
-
-                for (int i = 0; i < 5; i++)
+                string path = GetSettingsPath();
+                if (File.Exists(path))
                 {
-                    AddNewSlot(savedPaths[i]);
+                    string json = File.ReadAllText(path);
+                    var data = JsonSerializer.Deserialize<SlotData[]>(json);
+                    if (data != null)
+                    {
+                        foreach (var item in data)
+                        {
+                            AddNewSlot(item.Path ?? "");
+                        }
+                    }
                 }
+            } catch { }
+            // Ensure at least 1 slot exists
+            if (slots.Count == 0) AddNewSlot("");
+        }
+
+        private async void SaveSettings()
+        {
+            try {
+                var data = slots.Select(s => new SlotData { Path = s.Path }).ToArray();
+                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(GetSettingsPath(), json);
             } catch { }
         }
 
-        private void SaveSettings()
+        private class SlotData
         {
-            if (slots.Count >= 1) Properties.Settings.Default.Path1 = slots[0].Path;
-            if (slots.Count >= 2) Properties.Settings.Default.Path2 = slots[1].Path;
-            if (slots.Count >= 3) Properties.Settings.Default.Path3 = slots[2].Path;
-            if (slots.Count >= 4) Properties.Settings.Default.Path4 = slots[3].Path;
-            if (slots.Count >= 5) Properties.Settings.Default.Path5 = slots[4].Path;
-            Properties.Settings.Default.Save();
+            public string? Path { get; set; }
         }
 
         private void StartMonitoring()
@@ -460,9 +510,9 @@ namespace ProcessGuardian
             }
         }
 
-        private void Card_Paint(object sender, PaintEventArgs e)
+        private void Card_Paint(object? sender, PaintEventArgs e)
         {
-            Panel card = (Panel)sender;
+            if (sender is not Panel card) return;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             int radius = 15;
             GraphicsPath path = GetRoundedRectanglePath(card.ClientRectangle, radius);
@@ -470,9 +520,9 @@ namespace ProcessGuardian
             using (Pen pen = new Pen(Color.FromArgb(50, 50, 60), 1)) { e.Graphics.DrawPath(pen, path); }
         }
 
-        private void StatusLed_Paint(object sender, PaintEventArgs e)
+        private void StatusLed_Paint(object? sender, PaintEventArgs e)
         {
-            Label led = (Label)sender;
+            if (sender is not Label led) return;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Color baseColor;
             string status = led.Tag?.ToString() ?? "idle";
@@ -515,6 +565,7 @@ namespace ProcessGuardian
         public Label? StatusText { get; set; }
         public TextBox? PathBox { get; set; }
         public Button? BrowseBtn { get; set; }
+        public Button? DeleteBtn { get; set; }
         public Label? SlotLabel { get; set; }
     }
 

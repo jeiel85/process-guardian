@@ -1,5 +1,59 @@
 ---
 
+# Release Notes: Process Guardian v1.5.0 (Professional Edition)
+
+## 🚀 주요 업데이트 / 主要更新 / 主なアップデート / Key Updates
+
+### 1. 응답성 감지 (Hang Detection) / 响应性检测 / 応答検出
+- **SendMessageTimeout API**: 메인 창이 WM_NULL 메시지에 응답하는지 확인
+- **SendMessageTimeout API**: 检查主窗口是否响应WM_NULL消息
+- **SendMessageTimeout API**: メインウィンドウがWM_NULLメッセージに応答するか確認
+- **SendMessageTimeout API**: Checks if main window responds to WM_NULL messages
+
+### 2. 웹훅 알림 (Webhook) / Webhook通知
+- **Slack/Teams/Discord 연동**: 웹훅 URL을 설정하여 알림 전송
+- **Slack/Teams/Discord集成**: 设置Webhook URL发送通知
+- **Slack/Teams/Discord連携**: Webhook URLを設定して通知を送信
+- **Slack/Teams/Discord Integration**: Send notifications via webhook URL
+
+### 3. Windows 이벤트 로그 (Event Viewer) / Windows事件日志
+- **EventLog API**: 시스템 이벤트 로그에 기록
+- **EventLog API**: 记录到系统事件日志
+- **EventLog API**: システムイベントログに記録
+- **EventLog API**: Write to System Event Viewer
+
+### 4. 설정 내보내기/가져오기 (Import/Export) / 导入导出
+- **JSON 파일**: 전체 설정을 JSON으로 내보내기/가져오기
+- **JSON文件**: 导入导出整体配置
+- **JSONファイル**: 整体設定をJSONでエクスポート/インポート
+- **JSON File**: Export/Import all settings
+
+### 5. 프로필 관리 (Profile) / 配置文件管理
+- **설정 프로필**: 여러 프로필 저장 및 로드
+- **配置文件**: 保存和加载多个配置文件
+- **プロファイル管理**: 複数プロファイルを保存・ロード
+- **Profile Management**: Save/load multiple profiles
+
+### 6. 시스템 자동 시작 (HKLM) / 系统自动启动
+- **HKLM 레지스트리**: 관리자 권한으로 시스템 전체 자동 시작
+- **HKLM注册表**: 管理员权限系统级自动启动
+- **HKLMレジストリ**: 管理者権限でシステム全体自動開始
+- **HKLM Registry**: System-wide auto-start with admin
+
+### 7. CI/CD 파이프라인 / CI/CD管道
+- **GitHub Actions**: 자동 빌드 및 테스트
+- **GitHub Actions**: 自动构建和测试
+- **GitHub Actions**: 自動ビルど・テスト
+- **GitHub Actions**: Auto build and test
+
+### 8. 단위 테스트 / 单元测试
+- **ProcessGuardian.Tests**: xUnit 테스트 프로젝트
+- **ProcessGuardian.Tests**: xUnit测试项目
+- **ProcessGuardian.Tests**: xUnitテストプロジェクト
+- **ProcessGuardian.Tests**: xUnit test project
+
+---
+
 # Release Notes: Process Guardian v1.4.0 (Professional Edition)
 
 ## 🚀 주요 업데이트 / 主要更新 / 主なアップデート / Key Updates

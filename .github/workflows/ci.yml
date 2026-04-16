@@ -32,7 +32,9 @@ jobs:
     - name: Upload Release Asset
       if: github.event_name == 'release'
       run: |
+        echo "Uploading release asset..."
         gh release upload ${{ github.event.release.tag_name }} ./publish/ProcessGuardian.exe --clobber
+        echo "Upload complete!"
 
   test:
     runs-on: windows-latest

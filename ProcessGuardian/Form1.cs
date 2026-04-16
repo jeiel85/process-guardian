@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Text.Json;
 
 namespace ProcessGuardian
 {
@@ -40,6 +41,8 @@ namespace ProcessGuardian
         private bool isAdmin = false;
 
         private int monitoringInterval = 3000;
+        private int memoryThresholdMB = 2048;
+        private string logFilePath = "";
 
         public Form1()
         {
@@ -67,7 +70,7 @@ namespace ProcessGuardian
         private void InitializeModernUI()
         {
             this.Text = "Process Guardian Professional";
-            this.Size = new Size(580, 850); 
+            this.Size = new Size(620, 870); 
             this.BackColor = ColorBackground;
             this.ForeColor = ColorText;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -119,15 +122,21 @@ namespace ProcessGuardian
             comboLang.SelectedIndexChanged += (s, e) => ChangeLanguage(comboLang.SelectedIndex);
 
             lblInterval = new Label { Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 50, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 40, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numInterval.ValueChanged += (s, e) => { monitoringInterval = (int)numInterval.Value * 1000; };
+
+            Label lblMemThreshold = new Label { Text = GetStr("MemThreshold"), Location = new Point(360, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            NumericUpDown numMemThreshold = new NumericUpDown { Location = new Point(425, 602), Width = 40, Minimum = 512, Maximum = 16384, Value = memoryThresholdMB, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            numMemThreshold.ValueChanged += (s, e) => { memoryThresholdMB = (int)numMemThreshold.Value; };
 
             this.Controls.Add(lblLang);
             this.Controls.Add(comboLang);
             this.Controls.Add(lblInterval);
             this.Controls.Add(numInterval);
+            this.Controls.Add(lblMemThreshold);
+            this.Controls.Add(numMemThreshold);
 
-            CheckBox chkAutoStart = new CheckBox { Text = "Auto Start", Location = new Point(410, 602), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            CheckBox chkAutoStart = new CheckBox { Text = "Auto Start", Location = new Point(460, 602), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
             chkAutoStart.Checked = IsAutoStartEnabled();
             chkAutoStart.CheckedChanged += (s, e) => SetAutoStart(chkAutoStart.Checked);
             this.Controls.Add(chkAutoStart);
@@ -160,10 +169,10 @@ namespace ProcessGuardian
             this.Controls.Add(logBox);
         }
 
-        private void AddNewSlot(string path = "")
+        private void AddNewSlot(string path = "", string args = "")
         {
             int i = slots.Count;
-            ProcessSlot slot = new ProcessSlot { Index = i, Path = path };
+            ProcessSlot slot = new ProcessSlot { Index = i, Path = path, Args = args };
             
             Panel card = new Panel { Size = new Size(500, 90), BackColor = ColorCard, Padding = new Padding(15), Margin = new Padding(0, 0, 0, 10) };
             card.Paint += Card_Paint;
@@ -172,26 +181,56 @@ namespace ProcessGuardian
             slot.Led.Paint += StatusLed_Paint;
             
             slot.SlotLabel = new Label { Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true, Text = $"{GetStr("Slot")} {i + 1}" };
-            slot.StatusText = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 140 };
-            slot.PathBox = new TextBox { Text = path, Location = new Point(18, 48), Width = 380, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
+            slot.StatusText = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 100 };
+            slot.PathBox = new TextBox { Text = path, Location = new Point(18, 48), Width = 340, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
 
-            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(410, 45), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9F), Tag = i };
+            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(365, 45), Width = 50, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 8F), Tag = i };
             slot.BrowseBtn.FlatAppearance.BorderSize = 0;
             slot.BrowseBtn.Click += BtnSelect_Click;
             slot.BrowseBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
             slot.BrowseBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
+
+            slot.DeleteBtn = new Button { Text = "×", Location = new Point(420, 45), Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorStatusStopped, ForeColor = Color.White, Font = new Font("Segoe UI", 14F, FontStyle.Bold), Tag = i };
+            slot.DeleteBtn.FlatAppearance.BorderSize = 0;
+            slot.DeleteBtn.Click += BtnDelete_Click;
+            slot.DeleteBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(200, 50, 50); };
+            slot.DeleteBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorStatusStopped; };
 
             card.Controls.Add(slot.Led);
             card.Controls.Add(slot.SlotLabel);
             card.Controls.Add(slot.StatusText);
             card.Controls.Add(slot.PathBox);
             card.Controls.Add(slot.BrowseBtn);
+            card.Controls.Add(slot.DeleteBtn);
             
             slot.Card = card;
             slots.Add(slot);
             flowSlots.Controls.Add(card);
             
             if (flowSlots.Controls.Count > 1) Log($"New monitor slot added (Total: {slots.Count})");
+        }
+
+        private void BtnDelete_Click(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+            int index = (int)btn.Tag;
+            if (index >= 0 && index < slots.Count)
+            {
+                var slot = slots[index];
+                if (slot.Card != null) flowSlots.Controls.Remove(slot.Card);
+                slots.RemoveAt(index);
+                SaveSettings();
+                Log($"Slot {index + 1} removed (Remaining: {slots.Count})");
+                
+                // Re-index remaining slots
+                for (int i = 0; i < slots.Count; i++)
+                {
+                    slots[i].Index = i;
+                    if (slots[i].SlotLabel != null) slots[i].SlotLabel.Text = $"{GetStr("Slot")} {i + 1}";
+                    if (slots[i].BrowseBtn != null) slots[i].BrowseBtn.Tag = i;
+                    if (slots[i].DeleteBtn != null) slots[i].DeleteBtn.Tag = i;
+                }
+            }
         }
 
         private void BtnSelect_Click(object sender, EventArgs e)
@@ -339,8 +378,14 @@ namespace ProcessGuardian
         {
             try
             {
-                Process.Start(slot.Path);
+                ProcessStartInfo psi = new ProcessStartInfo(slot.Path);
+                if (!string.IsNullOrWhiteSpace(slot.Args))
+                {
+                    psi.Arguments = slot.Args;
+                }
+                Process.Start(psi);
                 Log($"Recovered: {Path.GetFileName(slot.Path)}", ColorStatusRunning);
+                LogToFile($"Recovered: {Path.GetFileName(slot.Path)}");
                 trayIcon.ShowBalloonTip(1000, "Guardian Alert", $"{Path.GetFileName(slot.Path)} " + GetStr("Recovered"), ToolTipIcon.Warning);
                 slot.FailureCount = 0;
             }
@@ -348,12 +393,14 @@ namespace ProcessGuardian
             {
                 slot.FailureCount++;
                 Log($"Failed to restart {Path.GetFileName(slot.Path)}: {ex.Message}", ColorStatusStopped);
+                LogToFile($"Failed to restart {Path.GetFileName(slot.Path)}: {ex.Message}");
                 
-                if (slot.FailureCount >= 3) // Reduced to 3 for faster testing
+                if (slot.FailureCount >= 3)
                 {
                     slot.IsBackingOff = true;
                     slot.NextCheckTime = DateTime.Now.AddSeconds(monitoringInterval * 10 / 1000); 
                     Log($"Threshold reached for {Path.GetFileName(slot.Path)}. Entering backoff mode.", ColorStatusWarning);
+                    LogToFile($"Backoff: {Path.GetFileName(slot.Path)}");
                     
                     if (slot.Led != null) {
                         slot.Led.Tag = "warning";
@@ -369,17 +416,89 @@ namespace ProcessGuardian
         private void CheckProcessResources(ProcessSlot slot)
         {
             try {
-                // To avoid too frequent logs, we only check every few cycles
                 string targetName = Path.GetFileNameWithoutExtension(slot.Path);
                 Process[] p = Process.GetProcessesByName(targetName);
                 foreach(var proc in p) {
                     if (string.Equals(proc.MainModule?.FileName, slot.Path, StringComparison.OrdinalIgnoreCase)) {
                         long memMB = proc.WorkingSet64 / 1024 / 1024;
-                        if (memMB > 2048) { // 2GB Threshold
+                        slot.LastMemoryMB = memMB;
+                        
+                        try {
+                            proc.Refresh();
+                            slot.LastCpuPercent = proc.TotalProcessorTime.TotalMilliseconds;
+                        } catch { }
+
+                        if (memMB > memoryThresholdMB) {
                              Log($"[Watchdog] Resource Alert: {Path.GetFileName(slot.Path)} memory usage is high ({memMB}MB).", ColorStatusWarning);
                         }
                     }
                 }
+            } catch { }
+        }
+
+        private void LogToFile(string message)
+        {
+            if (string.IsNullOrEmpty(logFilePath)) return;
+            try {
+                string logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
+                File.AppendAllText(logFilePath, logEntry + Environment.NewLine);
+            } catch { }
+        }
+
+        private void LoadSettings()
+        {
+            try {
+                monitoringInterval = Properties.Settings.Default.MonitoringInterval * 1000;
+                memoryThresholdMB = Properties.Settings.Default.MemoryThresholdMB;
+                logFilePath = Properties.Settings.Default.LogFilePath;
+
+                string pathsJson = Properties.Settings.Default.Paths;
+                string argsJson = Properties.Settings.Default.SlotArgs;
+
+                if (!string.IsNullOrEmpty(pathsJson) && pathsJson != "[]")
+                {
+                    var slotsData = JsonSerializer.Deserialize<List<SlotData>>(pathsJson);
+                    if (slotsData != null)
+                    {
+                        foreach (var sd in slotsData)
+                        {
+                            AddNewSlot(sd.Path, sd.Args);
+                        }
+                    }
+                }
+                else
+                {
+                    // Legacy: load from old Path1-5
+                    string[] savedPaths = {
+                        Properties.Settings.Default.Path1,
+                        Properties.Settings.Default.Path2,
+                        Properties.Settings.Default.Path3,
+                        Properties.Settings.Default.Path4,
+                        Properties.Settings.Default.Path5
+                    };
+                    for (int i = 0; i < 5; i++)
+                    {
+                        if (!string.IsNullOrEmpty(savedPaths[i]))
+                            AddNewSlot(savedPaths[i]);
+                    }
+                }
+            } catch { }
+        }
+
+        private void SaveSettings()
+        {
+            try {
+                var slotsData = new List<SlotData>();
+                for (int i = 0; i < slots.Count; i++)
+                {
+                    slotsData.Add(new SlotData { Path = slots[i].Path, Args = slots[i].Args });
+                }
+                Properties.Settings.Default.Paths = JsonSerializer.Serialize(slotsData);
+                Properties.Settings.Default.SlotArgs = "[]";
+                Properties.Settings.Default.MonitoringInterval = monitoringInterval / 1000;
+                Properties.Settings.Default.MemoryThresholdMB = memoryThresholdMB;
+                Properties.Settings.Default.LogFilePath = logFilePath;
+                Properties.Settings.Default.Save();
             } catch { }
         }
 
@@ -436,7 +555,8 @@ namespace ProcessGuardian
                 ["Exit"] = new[] { "Exit Guardian", "프로그램 종료", "ガー디안 종료", "退出" },
                 ["Loaded"] = new[] { "LOADED", "로드됨", "ロード済み", "已加载" },
                 ["Lang"] = new[] { "Language:", "언어 설정:", "言語設定:", "语言设置:" },
-                ["Interval"] = new[] { "Interval (sec):", "간격 (초):", "間隔 (秒):", "间隔 (秒):" }
+                ["Interval"] = new[] { "Interval (sec):", "간격 (초):", "間隔 (秒):", "间隔 (秒):" },
+                ["MemThreshold"] = new[] { "Memory (MB):", "메모리 (MB):", "メモリ (MB):", "内存 (MB):" }
             };
             if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
             return key;
@@ -506,16 +626,26 @@ namespace ProcessGuardian
     {
         public int Index { get; set; }
         public string Path { get; set; } = "";
+        public string Args { get; set; } = "";
         public int FailureCount { get; set; } = 0;
         public DateTime NextCheckTime { get; set; } = DateTime.MinValue;
         public bool IsBackingOff { get; set; } = false;
+        public long LastMemoryMB { get; set; } = 0;
+        public double LastCpuPercent { get; set; } = 0;
 
         public Panel? Card { get; set; }
         public Label? Led { get; set; }
         public Label? StatusText { get; set; }
         public TextBox? PathBox { get; set; }
         public Button? BrowseBtn { get; set; }
+        public Button? DeleteBtn { get; set; }
         public Label? SlotLabel { get; set; }
+    }
+
+    public class SlotData
+    {
+        public string Path { get; set; } = "";
+        public string Args { get; set; } = "";
     }
 
     internal class DarkModeRenderer : ToolStripProfessionalRenderer

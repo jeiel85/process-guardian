@@ -1,5 +1,77 @@
 ---
 
+# Release Notes: Process Guardian v1.4.0 (Professional Edition)
+
+## 🚀 주요 업데이트 / 主要更新 / 主なアップデート / Key Updates
+
+### 1. 모니터링 엔진 고도화 / 监控引擎升级 / 監視エンジンの高度化
+- **절대 경로 정밀 매칭**: `MainModule.FileName` 기반 경로 비교로 동일 이름 프로세스 구분
+- **绝对路径精确匹配**: 使用 `MainModule.FileName` 进行路径比较，区分同名不同路径的进程
+- **絶対パス精度マッチング**: `MainModule.FileName`ベースのパス比較で同名プロセスを区別
+- **Precision Path Matching**: Uses `MainModule.FileName` to distinguish processes with same name but different paths
+- **비동기 논블로킹**: 백그라운드 태스크로 UI 블로킹 방지
+- **异步非阻塞**: 后台任务防止UI阻塞
+- **非同期ノンブロッキング**: バックグラウンドタスクでUIブロックを防止
+- **Async Non-blocking**: Background tasks prevent UI blocking
+- **슬롯 삭제 기능**: 추가된 슬롯을 개별적으로 제거 가능
+- **插槽删除功能**: 可单独删除已添加的插槽
+- **スロット削除機能**: 追加したスロットを個別に削除可能
+- **Slot Deletion**: Remove added slots individually
+- **프로세스 시작 인수 지원**: 실행 시 명령줄 인수 전달 가능
+- **进程启动参数支持**: 启动时传递命令行参数
+- **プロセス開始引数サポート**: 起動時コマンドライン引数を伝達
+- **Process Start Args**: Pass command-line arguments on startup
+- **메모리 임계값 설정**: 메모리 경고 임계값 UI에서 조정
+- **内存阈值设置**: 在UI中调整内存警告阈值
+- **メモリ閾値設定**: UIでメモリ警告閾値を調整
+- **Memory Threshold**: Adjust memory warning threshold in UI
+- **파일 로그 저장**: 영구 이벤트 로그 파일 저장
+- **文件日志保存**: 永久保存事件日志文件
+- **ファイルログ保存**: 永久保存イベントログファイル
+- **File Logging**: Permanent event log file storage
+
+### 2. 크래시 루프 보호 (Restart Backoff) / 重启保护
+- 연속 실패 시 자동 백오프 알고리즘 적용
+- 连续失败时自动应用退避算法
+- 連続失敗時に自動バックオフアルゴリズム適用
+- **Automatic Backoff**: Applies backoff algorithm on continuous failure
+- 전역 예외 처리 및 크래시 로그
+- 全局异常处理和崩溃日志
+- グローバル例外処理とクラッシュログ
+- **Global Exception Handling**: Catches crashes and logs them
+
+### 3. 동적 슬otáms 시스템 / 动态插槽系统
+- 무제한 슬롯 추가 (동적 리스트)
+- 无限���加插槽(动态列表)
+- **Unlimited Slots**: Dynamic list for unlimited monitoring targets
+- FlowLayoutPanel 기반 효율적 스크롤
+- 基于FlowLayoutPanel的高效滚动
+- **FlowLayoutPanel**: Efficient scrolling layout
+
+### 4. 사용자 편의 / 用户便利 / ユーザー利便
+- **실시간 로그 콘솔**: 타임스탬프와 함께 실시간 이벤트 확인
+- **实时日志控制台**: 带时间戳的实时事件
+- **リアルタイムログコンソール**: タイムスタンプ付きリアルタイムイベント
+- **Real-time Log Console**: Real-time events with timestamps
+- **Windows 자동 시작**: 레지스트리 HKCU 기반 부팅 자동 실행
+- **Windows自动启动**: 基于注册表HKCU的启动自动运行
+- **Windows自動開始**: レジストリHKCUベースの起動自動実行
+- **Auto Start**: Auto-run on Windows boot via registry
+- **다국어 지원**: 영어/한국어/일본어/중국어
+- **多语言支持**: 英语/韩语/日语/中文
+- **多言語サポート**: 英語/韓国語/日本語/中国語
+- **Multilingual**: English, Korean, Japanese, Chinese
+- **관리자 모드 표시**: 실시간 권한 상태 UI 알림
+- **管理员模式显示**: 实时权限状态UI通知
+- **管理者モード表示**: リアルタイム権限状態UI通知
+- **Admin Mode Indicator**: Real-time privilege status UI
+- **리소스 워치독**: 메모리 임계값 초과 시 경고
+- **资源看门狗**: 超过内存阈值时警告
+- **リソースウォッチドッグ**: メモリ閾値超過時に警告
+- **Resource Watchdog**: Warns when memory threshold exceeded
+
+---
+
 # Release Notes: Process Guardian v1.3.0 (Professional Edition)
 
 이번 버전은 **"Professional"**이라는 이름에 걸맞게 내부 로직의 정밀도를 상용 수준으로 높이고, 사용자 편의를 위한 강력한 부가 기능들을 대거 탑재한 기념비적인 업데이트입니다.

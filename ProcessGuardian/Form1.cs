@@ -258,38 +258,10 @@ namespace ProcessGuardian
             }
         }
 
-        protected override void OnFormClosing(FormClosingEventArgs e)
+protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; this.Hide(); trayIcon.ShowBalloonTip(2000, "Background Mode", "Guardian is still protecting your processes.", ToolTipIcon.Info); }
             base.OnFormClosing(e);
-        }
-
-        private void LoadSettings()
-        {
-            try {
-                string[] savedPaths = {
-                    Properties.Settings.Default.Path1,
-                    Properties.Settings.Default.Path2,
-                    Properties.Settings.Default.Path3,
-                    Properties.Settings.Default.Path4,
-                    Properties.Settings.Default.Path5
-                };
-
-                for (int i = 0; i < 5; i++)
-                {
-                    AddNewSlot(savedPaths[i]);
-                }
-            } catch { }
-        }
-
-        private void SaveSettings()
-        {
-            if (slots.Count >= 1) Properties.Settings.Default.Path1 = slots[0].Path;
-            if (slots.Count >= 2) Properties.Settings.Default.Path2 = slots[1].Path;
-            if (slots.Count >= 3) Properties.Settings.Default.Path3 = slots[2].Path;
-            if (slots.Count >= 4) Properties.Settings.Default.Path4 = slots[3].Path;
-            if (slots.Count >= 5) Properties.Settings.Default.Path5 = slots[4].Path;
-            Properties.Settings.Default.Save();
         }
 
         private void StartMonitoring()

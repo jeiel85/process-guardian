@@ -1,0 +1,99 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  release:
+    types: [published]
+
+jobs:
+  build-x64:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: Test
+      run: dotnet test --no-build --verbosity quiet
+    
+    - name: Publish x64
+      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish-x64
+    
+    - name: Upload Release Asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./publish-x64/ProcessGuardian.exe
+        asset_name: ProcessGuardian_v${{ github.event.release.tag_name }}.exe
+        asset_content_type: application/octet-stream
+
+  build-arm64:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0'
+    
+    - name: Publish ARM64
+      run: dotnet publish -c Release -r win-arm64 --self-contained true -p:PublishSingleFile=true -o ./publish-arm64
+    
+    - name: Upload ARM64 Asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./publish-arm64/ProcessGuardian.exe
+        asset_name: ProcessGuardian_v${{ github.event.release.tag_name }}_ARM64.exe
+        asset_content_type: application/octet-stream
+
+  build-standalone:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0'
+    
+    - name: Build Standalone
+      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o ./publish-standalone
+    
+    - name: Create Standalone ZIP
+      if: github.event_name == 'release'
+      run: |
+        Compress-Archive -Path "./publish-standalone/*" -DestinationPath "./ProcessGuardian_v${{ github.event.tag_name }}_Standalone.zip"
+    
+    - name: Upload Standalone ZIP
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./ProcessGuardian_v${{ github.event.tag_name }}_Standalone.zip
+        asset_name: ProcessGuardian_v${{ github.event.tag_name }}_Standalone.zip
+        asset_content_type: application/zip

@@ -2,7 +2,7 @@
 
 # Release Notes: Process Guardian v1.6.0 (Professional Edition)
 
-## 주요 업데이트 (Key Updates)
+## 주요 업데이트
 
 ### 1. Graceful Shutdown
 - 종료 시 감시 중인 모든 프로세스를 정상적으로 종료한 후 앱 종료
@@ -10,7 +10,7 @@
 
 ### 2. 시작 지연 (Startup Delay)
 - 각 프로세스별 시작 지연 시간 설정 (0-300초)
-- 부팅 시 동시에 banyak 프로세스 시작による負荷急増 방지
+- 부팅 시 동시에 많은 프로세스가 시작되어 시스템 부하가 급증하는 것 방지
 
 ### 3. 시작 전/후 스크립트
 - 프로세스 시작 전 사용자 정의 스크립트 실행 (.bat, .ps1)
@@ -24,7 +24,7 @@
 
 ---
 
-## 주요 기능 (Features)
+## 주요 기능
 
 | 기능 | 설명 |
 |------|------|
@@ -38,16 +38,6 @@
 | 웹훅 알림 | Slack/Teams/Discord 연동 |
 | Windows 이벤트 로그 | 시스템 로그에 기록 |
 | 설정 내보내기/가져오기 | JSON으로 백업/복원 |
-
----
-
-## 다운로드
-
-**ProcessGuardian.exe** (~65MB, Self-contained)
-- .NET 런타임 无需설치
-- 바로 실행 가능
-
-[Downloads](https://github.com/jeiel85/process-guardian/releases)
 
 ---
 
@@ -80,6 +70,21 @@
 - 정밀 경로 감지
 - 재시작 백오프
 - 사용자 편의/UI 확장
+
+### v1.2.0 (2026-04-10)
+- Premium 다크 테마
+- �근 모서리 카드
+- LED 글로우 효과
+- Slim/Standalone 이중 배포
+
+### v1.1.0 (2026-04-10)
+- 다국어 지원 (한/영/중/일)
+- 경량화 (Framework-dependent)
+
+### v1.0.0 (2026-04-10)
+- 첫 공식 릴리즈
+- Modern Dark Dashboard
+- 자동 복구 로직
 
 ---
 

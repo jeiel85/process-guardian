@@ -212,7 +212,7 @@ namespace ProcessGuardian
 
             logBox = new RichTextBox
             {
-                Location = new Point(25, 645),
+                Location = new Point(25, 685),
                 Size = new Size(515, 140),
                 BackColor = Color.FromArgb(25, 25, 30),
                 ForeColor = Color.FromArgb(200, 200, 210),

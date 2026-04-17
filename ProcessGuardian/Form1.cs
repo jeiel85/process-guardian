@@ -77,7 +77,7 @@ namespace ProcessGuardian
         private void InitializeModernUI()
         {
             this.Text = "Process Guardian Professional";
-            this.Size = new Size(620, 920); 
+            this.Size = new Size(600, 920); 
             this.BackColor = ColorBackground;
             this.ForeColor = ColorText;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -87,22 +87,22 @@ namespace ProcessGuardian
             PictureBox logo = new PictureBox { Image = SystemIcons.Shield.ToBitmap(), Location = new Point(25, 22), Size = new Size(32, 32), SizeMode = PictureBoxSizeMode.StretchImage };
             this.Controls.Add(logo);
 
-            Label header = new Label { Text = "Process Guardian Pro", Font = new Font("Segoe UI", 20F, FontStyle.Bold), Location = new Point(65, 18), AutoSize = true, ForeColor = ColorText };
+            Label header = new Label { Text = "Process Guardian Pro", Font = new Font("Segoe UI", 18F, FontStyle.Bold), Location = new Point(65, 18), AutoSize = true, ForeColor = ColorText };
             this.Controls.Add(header);
 
             if (!isAdmin)
             {
-                lblAdminWarn = new Label { Text = "⚠ USER MODE", ForeColor = ColorStatusStopped, Font = new Font("Segoe UI", 8F, FontStyle.Bold), Location = new Point(420, 32), AutoSize = true };
+                lblAdminWarn = new Label { Text = "⚠ USER MODE", ForeColor = ColorStatusStopped, Font = new Font("Segoe UI", 8F, FontStyle.Bold), Location = new Point(68, 52), AutoSize = true };
                 this.Controls.Add(lblAdminWarn);
             }
 
             btnAddSlot = new Button
             {
                 Text = "+ Add Slot",
-                Location = new Point(440, 20),
-                Size = new Size(100, 32),
+                Location = new Point(460, 22),
+                Size = new Size(95, 30),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(50, 50, 55),
+                BackColor = Color.FromArgb(45, 45, 50),
                 ForeColor = ColorAccent,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
@@ -113,8 +113,8 @@ namespace ProcessGuardian
 
             flowSlots = new FlowLayoutPanel
             {
-                Location = new Point(25, 80),
-                Size = new Size(530, 520),
+                Location = new Point(25, 85),
+                Size = new Size(540, 500),
                 AutoScroll = true,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
@@ -122,71 +122,81 @@ namespace ProcessGuardian
             };
             this.Controls.Add(flowSlots);
 
-            lblLang = new Label { Location = new Point(25, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            ComboBox comboLang = new ComboBox { Location = new Point(100, 602), Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
+            // --- 하단 설정 영역 시작 (Y: 605 ~ ) ---
+            int settingsY = 605;
+
+            // Row 1: Language, Interval, Memory
+            lblLang = new Label { Location = new Point(25, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
+            ComboBox comboLang = new ComboBox { Location = new Point(100, settingsY), Width = 90, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
             comboLang.Items.AddRange(new string[] { "English", "한국어", "日本語", "简体中文" });
             comboLang.SelectedIndex = 0;
             comboLang.SelectedIndexChanged += (s, e) => ChangeLanguage(comboLang.SelectedIndex);
 
-            lblInterval = new Label { Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 40, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            lblInterval = new Label { Location = new Point(210, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
+            NumericUpDown numInterval = new NumericUpDown { Location = new Point(295, settingsY), Width = 45, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numInterval.ValueChanged += (s, e) => { monitoringInterval = (int)numInterval.Value * 1000; };
 
-            Label lblMemThreshold = new Label { Text = GetStr("MemThreshold"), Location = new Point(360, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numMemThreshold = new NumericUpDown { Location = new Point(425, 602), Width = 40, Minimum = 512, Maximum = 16384, Value = memoryThresholdMB, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            Label lblMemThreshold = new Label { Text = GetStr("MemThreshold"), Location = new Point(370, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
+            NumericUpDown numMemThreshold = new NumericUpDown { Location = new Point(475, settingsY), Width = 65, Minimum = 512, Maximum = 16384, Value = memoryThresholdMB, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numMemThreshold.ValueChanged += (s, e) => { memoryThresholdMB = (int)numMemThreshold.Value; };
 
-            this.Controls.Add(lblLang);
-            this.Controls.Add(comboLang);
-            this.Controls.Add(lblInterval);
-            this.Controls.Add(numInterval);
-            this.Controls.Add(lblMemThreshold);
-            this.Controls.Add(numMemThreshold);
+            this.Controls.Add(lblLang); this.Controls.Add(comboLang);
+            this.Controls.Add(lblInterval); this.Controls.Add(numInterval);
+            this.Controls.Add(lblMemThreshold); this.Controls.Add(numMemThreshold);
 
-            // 추가 설정 컨트롤들
-            CheckBox chkAutoStart = new CheckBox { Text = GetStr("AutoStart"), Location = new Point(25, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            // Row 2: AutoStart, WinEventLog, HangDetect
+            settingsY += 35;
+            CheckBox chkAutoStart = new CheckBox { Text = GetStr("AutoStart"), Location = new Point(25, settingsY), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
             chkAutoStart.Checked = IsAutoStartEnabled();
             chkAutoStart.CheckedChanged += (s, e) => SetAutoStart(chkAutoStart.Checked);
-            this.Controls.Add(chkAutoStart);
-
-            CheckBox chkWinEventLog = new CheckBox { Text = GetStr("WinEventLog"), Location = new Point(120, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            
+            CheckBox chkWinEventLog = new CheckBox { Text = GetStr("WinEventLog"), Location = new Point(135, settingsY), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
             chkWinEventLog.Checked = useWindowsEventLog;
             chkWinEventLog.CheckedChanged += (s, e) => { useWindowsEventLog = chkWinEventLog.Checked; Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog; };
-            this.Controls.Add(chkWinEventLog);
-
-            CheckBox chkHangDetect = new CheckBox { Text = GetStr("HangDetect"), Location = new Point(230, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            
+            CheckBox chkHangDetect = new CheckBox { Text = GetStr("HangDetect"), Location = new Point(255, settingsY), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8.5F) };
             chkHangDetect.Checked = useHangDetection;
             chkHangDetect.CheckedChanged += (s, e) => { useHangDetection = chkHangDetect.Checked; Properties.Settings.Default.UseHangDetection = useHangDetection; };
-            this.Controls.Add(chkHangDetect);
 
-            // Hang Timeout 설정
-            Label lblHangTimeout = new Label { Text = GetStr("HangTimeout"), Location = new Point(230, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numHangTimeout = new NumericUpDown { Location = new Point(330, 650), Width = 40, Minimum = 5, Maximum = 300, Value = hangTimeoutSec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            this.Controls.Add(chkAutoStart); this.Controls.Add(chkWinEventLog); this.Controls.Add(chkHangDetect);
+
+            // Row 3: Hang Timeout, Startup Delay
+            settingsY += 35;
+            Label lblHangTimeout = new Label { Text = GetStr("HangTimeout"), Location = new Point(25, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            NumericUpDown numHangTimeout = new NumericUpDown { Location = new Point(135, settingsY), Width = 45, Minimum = 5, Maximum = 300, Value = hangTimeoutSec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numHangTimeout.ValueChanged += (s, e) => { hangTimeoutSec = (int)numHangTimeout.Value; };
-            this.Controls.Add(lblHangTimeout);
-            this.Controls.Add(numHangTimeout);
 
-            // 시작 지연 설정
-            Label lblStartupDelay = new Label { Text = GetStr("StartupDelay"), Location = new Point(380, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numStartupDelay = new NumericUpDown { Location = new Point(470, 650), Width = 40, Minimum = 0, Maximum = 300, Value = startupDelaySec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            Label lblStartupDelay = new Label { Text = GetStr("StartupDelay"), Location = new Point(210, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            NumericUpDown numStartupDelay = new NumericUpDown { Location = new Point(295, settingsY), Width = 45, Minimum = 0, Maximum = 300, Value = startupDelaySec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
             numStartupDelay.ValueChanged += (s, e) => { startupDelaySec = (int)numStartupDelay.Value; };
-            this.Controls.Add(lblStartupDelay);
-            this.Controls.Add(numStartupDelay);
 
-            this.Size = new Size(620, 970);
+            this.Controls.Add(lblHangTimeout); this.Controls.Add(numHangTimeout);
+            this.Controls.Add(lblStartupDelay); this.Controls.Add(numStartupDelay);
 
-            // Webhook URL 입력
-            Label lblWebhook = new Label { Text = "Webhook:", Location = new Point(330, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            TextBox txtWebhook = new TextBox { Text = webhookUrl, Location = new Point(390, 626), Width = 160, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8F) };
+            // Webhook (Row 3 continuation)
+            Label lblWebhook = new Label { Text = "Webhook:", Location = new Point(370, settingsY + 3), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            TextBox txtWebhook = new TextBox { Text = webhookUrl, Location = new Point(440, settingsY), Width = 100, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8F) };
             txtWebhook.Leave += (s, e) => { webhookUrl = txtWebhook.Text; Properties.Settings.Default.WebhookUrl = webhookUrl; };
-            this.Controls.Add(lblWebhook);
-            this.Controls.Add(txtWebhook);
+            this.Controls.Add(lblWebhook); this.Controls.Add(txtWebhook);
+
+            // --- 하단 로그 영역 (Y: 720 ~ ) ---
+            logBox = new RichTextBox
+            {
+                Location = new Point(25, 725),
+                Size = new Size(530, 140),
+                BackColor = Color.FromArgb(25, 25, 30),
+                ForeColor = Color.FromArgb(200, 200, 210),
+                BorderStyle = BorderStyle.None,
+                ReadOnly = true,
+                Font = new Font("Consolas", 8.5F)
+            };
+            this.Controls.Add(logBox);
 
             trayMenu = new ContextMenuStrip();
             trayMenu.Renderer = new DarkModeRenderer(); 
             trayOpenItem = new ToolStripMenuItem("Open Dashboard", null, (s, e) => ShowForm());
             trayExitItem = new ToolStripMenuItem("Exit Guardian", null, (s, e) => ExitApp());
-            // 설정 메뉴
+            
             ToolStripMenuItem traySettingsItem = new ToolStripMenuItem(GetStr("Settings"));
             ToolStripMenuItem menuExport = new ToolStripMenuItem(GetStr("Export"), null, (s, e) => ExportSettings());
             ToolStripMenuItem menuImport = new ToolStripMenuItem(GetStr("Import"), null, (s, e) => ImportSettings());
@@ -209,18 +219,6 @@ namespace ProcessGuardian
             trayIcon.ContextMenuStrip = trayMenu;
             trayIcon.Visible = true;
             trayIcon.DoubleClick += (s, e) => ShowForm();
-
-            logBox = new RichTextBox
-            {
-                Location = new Point(25, 685),
-                Size = new Size(515, 140),
-                BackColor = Color.FromArgb(25, 25, 30),
-                ForeColor = Color.FromArgb(200, 200, 210),
-                BorderStyle = BorderStyle.None,
-                ReadOnly = true,
-                Font = new Font("Consolas", 8.5F)
-            };
-            this.Controls.Add(logBox);
         }
 
         private void AddNewSlot(string path = "", string args = "")

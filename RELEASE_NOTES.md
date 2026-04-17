@@ -43,11 +43,16 @@
 
 ## 변경 이력
 
-### v1.6.0 (2026-04-17)
-- Graceful Shutdown 추가
-- 시작 지연 추가
-- 시작 전/후 스크립트 실행
-- Hang Timeout UI 추가
+### v1.6.2 (2026-04-18)
+- UI Layout Refinement: Organized settings into rows, fixed overlapping controls, and optimized form size.
+- Policy Update: Added shell command auto-approval policy for improved automation.
+- Improved header and admin warning positioning.
+
+### v1.6.1 (2026-04-17)
+- fix: v1.6.1 UI layout - reveal hidden settings controls
+- logBox position adjustment to expose HangTimeout and StartupDelay.
+- app.manifest for Windows 7-11 compatibility.
+
 
 ### v1.5.0 (2026-04-16)
 - 응답성 감지 (Hang Detection)

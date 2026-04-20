@@ -53,6 +53,14 @@
 - 프로세스 카드 레이아웃 정렬 개선 — 찾아보기 버튼 너비 확대
 - 관리자 권한 상태를 타이틀 아래 독립 라벨로 분리 표시
 
+### v1.6.2 (2026-04-18)
+- UI Layout Refinement: settings rows reorganized, overlapping controls fixed, form size optimized.
+- Improved header and admin warning positioning.
+
+### v1.6.1 (2026-04-17)
+- logBox position adjustment to expose HangTimeout and StartupDelay.
+- app.manifest for Windows 7–11 compatibility.
+
 ### v1.6.0 (2026-04-17)
 - Graceful Shutdown 추가
 - 시작 지연 추가

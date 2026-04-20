@@ -1,4 +1,4 @@
-# Process Guardian Professional (v1.6.0)
+# Process Guardian Professional (v1.7.0)
 
 <p align="center">
   <img src="./Resources/logo.png" width="200" alt="Process Guardian Logo">
@@ -7,13 +7,13 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Windows-blue?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Language-C%23-green?style=for-the-badge&logo=c-sharp" alt="Language">
-  <img src="https://img.shields.io/badge/Version-1.6.0_Professional-orange?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.7.0_Professional-orange?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License">
 </p>
 
 ---
 
-**Process Guardian Professional**은 Windows 환경에서 중요한 프로세스가 종료되는 것을 방지하기 위해 설계된 강력하고 고도화된 프로세스 관리 도구입니다. v1.6.0 업데이트를 통해 Graceful Shutdown, 시작 지연, 스크립트 실행, 웹훅 알림 등 전문가급 기능을 모두 갖추었습니다.
+**Process Guardian Professional**은 Windows 환경에서 중요한 프로세스가 종료되는 것을 방지하기 위해 설계된 강력하고 고도화된 프로세스 관리 도구입니다. v1.7.0에서 UI를 전면 재구성하여 설정 항목을 직관적인 섹션 카드로 정리하고, 시스템 언어 자동 감지를 추가했습니다.
 
 ## 📸 Preview
 
@@ -63,9 +63,9 @@
 
 ### Quick Start
 1. **프로그램 실행**: `ProcessGuardian.exe`를 실행합니다.
-2. **슬롯 추가**: `+ Add Slot` 버튼을 눌러 새 감시 카드를 생성합니다.
-3. **프로그램 선택**: `Browse`를 눌러 감시할 실행 파일을 선택합니다.
-4. **설정 조정**: 하단에서 간격, 메모리 임계값, 시작 지연 등을 설정합니다.
+2. **슬롯 추가**: `+ 신규 슬롯` 버튼을 눌러 새 감시 카드를 생성합니다.
+3. **프로그램 선택**: `찾아보기`를 눌러 감시할 실행 파일을 선택합니다.
+4. **설정 조정**: 하단 설정 카드에서 감시 주기, 메모리 임계값, 시작 지연 등을 조정합니다.
 
 ### 주요 설정
 | 설정 | 설명 | 기본값 |

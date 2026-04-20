@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Windows.Forms;
@@ -16,30 +17,28 @@ namespace ProcessGuardian
 {
     public partial class Form1 : Form
     {
-        private static readonly Color ColorBackground = Color.FromArgb(18, 18, 20); 
-        private static readonly Color ColorCard = Color.FromArgb(30, 30, 35);       
-        private static readonly Color ColorAccent = Color.FromArgb(37, 99, 235);    
+        private static readonly Color ColorBackground = Color.FromArgb(18, 18, 20);
+        private static readonly Color ColorCard = Color.FromArgb(30, 30, 35);
+        private static readonly Color ColorAccent = Color.FromArgb(37, 99, 235);
         private static readonly Color ColorText = Color.FromArgb(248, 250, 252);
-        private static readonly Color ColorStatusRunning = Color.FromArgb(34, 197, 94); 
-        private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);  
-        private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11); 
+        private static readonly Color ColorStatusRunning = Color.FromArgb(34, 197, 94);
+        private static readonly Color ColorStatusStopped = Color.FromArgb(239, 68, 68);
+        private static readonly Color ColorStatusWarning = Color.FromArgb(245, 158, 11);
 
         private List<ProcessSlot> slots = new List<ProcessSlot>();
         private FlowLayoutPanel flowSlots;
         private Button btnAddSlot;
-
         private Label lblLang;
         private Label lblInterval;
+        private ToolTip toolTip;
         private ToolStripMenuItem trayOpenItem;
         private ToolStripMenuItem trayExitItem;
-
         private NotifyIcon trayIcon;
         private ContextMenuStrip trayMenu;
-        
         private CancellationTokenSource? cts;
         private RichTextBox logBox;
-        private Label lblAdminWarn;
         private bool isAdmin = false;
+        private int currentLangIndex = 0;
 
         private int monitoringInterval = 3000;
         private int memoryThresholdMB = 2048;
@@ -55,11 +54,12 @@ namespace ProcessGuardian
         {
             InitializeComponent();
             CheckAdminStatus();
-            InitializeModernUI(); 
-            LoadSettings();       
-            StartMonitoring();    
-            UpdateUITexts(); 
-            Log(isAdmin ? "System started with Administrator privileges." : "System started with User privileges. (Some monitoring might be limited)", 
+            DetectSystemLanguage();
+            InitializeModernUI();
+            LoadSettings();
+            StartMonitoring();
+            UpdateUITexts();
+            Log(isAdmin ? "System started with Administrator privileges." : "System started with User privileges. (Some monitoring might be limited)",
                 isAdmin ? ColorStatusRunning : ColorStatusWarning);
         }
 
@@ -74,47 +74,76 @@ namespace ProcessGuardian
             } catch { isAdmin = false; }
         }
 
+        private void DetectSystemLanguage()
+        {
+            string lang = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLower();
+            if (lang == "ko") currentLangIndex = 1;
+            else if (lang == "ja") currentLangIndex = 2;
+            else if (lang == "zh") currentLangIndex = 3;
+            else currentLangIndex = 0;
+        }
+
         private void InitializeModernUI()
         {
-            this.Text = "Process Guardian Professional";
-            this.Size = new Size(620, 920); 
             this.BackColor = ColorBackground;
             this.ForeColor = ColorText;
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            PictureBox logo = new PictureBox { Image = SystemIcons.Shield.ToBitmap(), Location = new Point(25, 22), Size = new Size(32, 32), SizeMode = PictureBoxSizeMode.StretchImage };
+            toolTip = new ToolTip { AutoPopDelay = 6000, InitialDelay = 300 };
+
+            // ── 헤더 ──────────────────────────────────────────────
+            PictureBox logo = new PictureBox
+            {
+                Image = SystemIcons.Shield.ToBitmap(),
+                Location = new Point(20, 16),
+                Size = new Size(34, 34),
+                SizeMode = PictureBoxSizeMode.StretchImage
+            };
             this.Controls.Add(logo);
 
-            Label header = new Label { Text = "Process Guardian Pro", Font = new Font("Segoe UI", 20F, FontStyle.Bold), Location = new Point(65, 18), AutoSize = true, ForeColor = ColorText };
-            this.Controls.Add(header);
-
-            if (!isAdmin)
+            Label headerTitle = new Label
             {
-                lblAdminWarn = new Label { Text = "⚠ USER MODE", ForeColor = ColorStatusStopped, Font = new Font("Segoe UI", 8F, FontStyle.Bold), Location = new Point(420, 32), AutoSize = true };
-                this.Controls.Add(lblAdminWarn);
-            }
+                Text = "Process Guardian Pro",
+                Font = new Font("Segoe UI", 20F, FontStyle.Bold),
+                Location = new Point(63, 8),
+                AutoSize = true,
+                ForeColor = ColorText
+            };
+            this.Controls.Add(headerTitle);
+
+            Label lblAdminStatus = new Label
+            {
+                Text = isAdmin ? "✓ 관리자 모드" : "⚠  관리자 권한 없음 — 일부 기능 제한됨",
+                ForeColor = isAdmin ? ColorStatusRunning : ColorStatusWarning,
+                Font = new Font("Segoe UI", 8F),
+                Location = new Point(65, 46),
+                AutoSize = true
+            };
+            this.Controls.Add(lblAdminStatus);
 
             btnAddSlot = new Button
             {
-                Text = "+ Add Slot",
-                Location = new Point(440, 20),
-                Size = new Size(100, 32),
+                Text = "+ 신규 슬롯",
+                Location = new Point(492, 16),
+                Size = new Size(116, 38),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(50, 50, 55),
+                BackColor = Color.FromArgb(50, 50, 58),
                 ForeColor = ColorAccent,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Cursor = Cursors.Hand
             };
             btnAddSlot.FlatAppearance.BorderSize = 1;
             btnAddSlot.FlatAppearance.BorderColor = ColorAccent;
-            btnAddSlot.Click += (s, e) => AddNewSlot(); 
+            btnAddSlot.Click += (s, e) => AddNewSlot();
             this.Controls.Add(btnAddSlot);
 
+            // ── 슬롯 영역 ─────────────────────────────────────────
             flowSlots = new FlowLayoutPanel
             {
-                Location = new Point(25, 80),
-                Size = new Size(530, 520),
+                Location = new Point(20, 72),
+                Size = new Size(572, 520),
                 AutoScroll = true,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
@@ -122,133 +151,285 @@ namespace ProcessGuardian
             };
             this.Controls.Add(flowSlots);
 
-            lblLang = new Label { Location = new Point(25, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            ComboBox comboLang = new ComboBox { Location = new Point(100, 602), Width = 100, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = ColorCard, ForeColor = ColorText, FlatStyle = FlatStyle.Flat };
+            // ── 설정 패널 ─────────────────────────────────────────
+            Panel settingsPanel = new Panel
+            {
+                Location = new Point(20, 602),
+                Size = new Size(572, 190),
+                BackColor = ColorCard
+            };
+            settingsPanel.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                var rp = GetRoundedRectanglePath(settingsPanel.ClientRectangle, 12);
+                settingsPanel.Region = new Region(rp);
+                using var pen = new Pen(Color.FromArgb(50, 50, 62), 1);
+                e.Graphics.DrawPath(pen, rp);
+            };
+            this.Controls.Add(settingsPanel);
+
+            Color secC = Color.FromArgb(72, 72, 92);
+            Color lblC = Color.FromArgb(128, 128, 148);
+            Color dimC = Color.FromArgb(88, 88, 108);
+            Font secF = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            Font lf = new Font("Segoe UI", 8F);
+            Font uf = new Font("Segoe UI", 7.5F);
+
+            // ── 기본 설정 ──────────────────────────────────────────
+            AddSectionHeader(settingsPanel, "기본 설정", 12, 10, secC, secF);
+
+            lblLang = new Label { Location = new Point(12, 31), AutoSize = true, ForeColor = lblC, Font = lf };
+            ComboBox comboLang = new ComboBox
+            {
+                Location = new Point(55, 28),
+                Width = 90,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = ColorText,
+                FlatStyle = FlatStyle.Flat,
+                Font = lf
+            };
             comboLang.Items.AddRange(new string[] { "English", "한국어", "日本語", "简体中文" });
-            comboLang.SelectedIndex = 0;
+            comboLang.SelectedIndex = currentLangIndex;
             comboLang.SelectedIndexChanged += (s, e) => ChangeLanguage(comboLang.SelectedIndex);
+            settingsPanel.Controls.Add(lblLang);
+            settingsPanel.Controls.Add(comboLang);
 
-            lblInterval = new Label { Location = new Point(220, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numInterval = new NumericUpDown { Location = new Point(310, 602), Width = 40, Minimum = 1, Maximum = 60, Value = 3, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
+            lblInterval = new Label { Location = new Point(158, 31), AutoSize = true, ForeColor = lblC, Font = lf };
+            NumericUpDown numInterval = new NumericUpDown
+            {
+                Location = new Point(228, 28),
+                Width = 46,
+                Minimum = 1, Maximum = 60,
+                Value = Math.Max(1, monitoringInterval / 1000),
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = ColorText,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = lf
+            };
             numInterval.ValueChanged += (s, e) => { monitoringInterval = (int)numInterval.Value * 1000; };
+            Label lblIntervalUnit = new Label { Text = "초", Location = new Point(276, 31), AutoSize = true, ForeColor = lblC, Font = uf };
+            settingsPanel.Controls.AddRange(new Control[] { lblInterval, numInterval, lblIntervalUnit });
 
-            Label lblMemThreshold = new Label { Text = GetStr("MemThreshold"), Location = new Point(360, 605), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numMemThreshold = new NumericUpDown { Location = new Point(425, 602), Width = 40, Minimum = 512, Maximum = 16384, Value = memoryThresholdMB, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
-            numMemThreshold.ValueChanged += (s, e) => { memoryThresholdMB = (int)numMemThreshold.Value; };
+            Label lblMem = new Label { Text = "메모리 경고 임계값:", Location = new Point(296, 31), AutoSize = true, ForeColor = lblC, Font = lf };
+            NumericUpDown numMem = new NumericUpDown
+            {
+                Location = new Point(416, 28),
+                Width = 56,
+                Minimum = 512, Maximum = 16384,
+                Value = memoryThresholdMB,
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = ColorText,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = lf
+            };
+            numMem.ValueChanged += (s, e) => { memoryThresholdMB = (int)numMem.Value; };
+            Label lblMemUnit = new Label { Text = "MB", Location = new Point(475, 31), AutoSize = true, ForeColor = lblC, Font = uf };
+            settingsPanel.Controls.AddRange(new Control[] { lblMem, numMem, lblMemUnit });
 
-            this.Controls.Add(lblLang);
-            this.Controls.Add(comboLang);
-            this.Controls.Add(lblInterval);
-            this.Controls.Add(numInterval);
-            this.Controls.Add(lblMemThreshold);
-            this.Controls.Add(numMemThreshold);
+            // ── 실행 옵션 ──────────────────────────────────────────
+            AddSectionHeader(settingsPanel, "실행 옵션", 12, 55, secC, secF);
 
-            // 추가 설정 컨트롤들
-            CheckBox chkAutoStart = new CheckBox { Text = GetStr("AutoStart"), Location = new Point(25, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
+            CheckBox chkAutoStart = new CheckBox
+            {
+                Text = "Windows 시작 시 자동 실행",
+                Location = new Point(12, 73),
+                AutoSize = true,
+                ForeColor = lblC,
+                Font = lf
+            };
             chkAutoStart.Checked = IsAutoStartEnabled();
             chkAutoStart.CheckedChanged += (s, e) => SetAutoStart(chkAutoStart.Checked);
-            this.Controls.Add(chkAutoStart);
+            settingsPanel.Controls.Add(chkAutoStart);
 
-            CheckBox chkWinEventLog = new CheckBox { Text = GetStr("WinEventLog"), Location = new Point(120, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            chkWinEventLog.Checked = useWindowsEventLog;
-            chkWinEventLog.CheckedChanged += (s, e) => { useWindowsEventLog = chkWinEventLog.Checked; Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog; };
-            this.Controls.Add(chkWinEventLog);
+            Label lblDelay = new Label { Text = "시작 지연:", Location = new Point(215, 74), AutoSize = true, ForeColor = lblC, Font = lf };
+            NumericUpDown numDelay = new NumericUpDown
+            {
+                Location = new Point(272, 71),
+                Width = 46,
+                Minimum = 0, Maximum = 300,
+                Value = startupDelaySec,
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = ColorText,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = lf
+            };
+            numDelay.ValueChanged += (s, e) => { startupDelaySec = (int)numDelay.Value; };
+            Label lblDelayDesc = new Label { Text = "초  (부팅 후 감시 시작까지 대기)", Location = new Point(321, 74), AutoSize = true, ForeColor = dimC, Font = uf };
+            settingsPanel.Controls.AddRange(new Control[] { lblDelay, numDelay, lblDelayDesc });
 
-            CheckBox chkHangDetect = new CheckBox { Text = GetStr("HangDetect"), Location = new Point(230, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            chkHangDetect.Checked = useHangDetection;
-            chkHangDetect.CheckedChanged += (s, e) => { useHangDetection = chkHangDetect.Checked; Properties.Settings.Default.UseHangDetection = useHangDetection; };
-            this.Controls.Add(chkHangDetect);
+            // ── 모니터링 ───────────────────────────────────────────
+            AddSectionHeader(settingsPanel, "모니터링", 12, 99, secC, secF);
 
-            // Hang Timeout 설정
-            Label lblHangTimeout = new Label { Text = GetStr("HangTimeout"), Location = new Point(230, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numHangTimeout = new NumericUpDown { Location = new Point(330, 650), Width = 40, Minimum = 5, Maximum = 300, Value = hangTimeoutSec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
-            numHangTimeout.ValueChanged += (s, e) => { hangTimeoutSec = (int)numHangTimeout.Value; };
-            this.Controls.Add(lblHangTimeout);
-            this.Controls.Add(numHangTimeout);
+            CheckBox chkEventLog = new CheckBox
+            {
+                Text = "이벤트 로그 기록 (Windows 이벤트 뷰어)",
+                Location = new Point(12, 117),
+                AutoSize = true,
+                ForeColor = lblC,
+                Font = lf
+            };
+            chkEventLog.Checked = useWindowsEventLog;
+            chkEventLog.CheckedChanged += (s, e) => { useWindowsEventLog = chkEventLog.Checked; Properties.Settings.Default.UseWindowsEventLog = useWindowsEventLog; };
+            settingsPanel.Controls.Add(chkEventLog);
 
-            // 시작 지연 설정
-            Label lblStartupDelay = new Label { Text = GetStr("StartupDelay"), Location = new Point(380, 652), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            NumericUpDown numStartupDelay = new NumericUpDown { Location = new Point(470, 650), Width = 40, Minimum = 0, Maximum = 300, Value = startupDelaySec, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle };
-            numStartupDelay.ValueChanged += (s, e) => { startupDelaySec = (int)numStartupDelay.Value; };
-            this.Controls.Add(lblStartupDelay);
-            this.Controls.Add(numStartupDelay);
+            CheckBox chkHang = new CheckBox
+            {
+                Text = "응답 없음 감지",
+                Location = new Point(12, 137),
+                AutoSize = true,
+                ForeColor = lblC,
+                Font = lf
+            };
+            chkHang.Checked = useHangDetection;
+            chkHang.CheckedChanged += (s, e) => { useHangDetection = chkHang.Checked; Properties.Settings.Default.UseHangDetection = useHangDetection; };
+            settingsPanel.Controls.Add(chkHang);
 
-            this.Size = new Size(620, 970);
+            Label lblHangDesc = new Label { Text = "— 실행 중이어도 프로세스가 응답 없으면 감지", Location = new Point(122, 138), AutoSize = true, ForeColor = dimC, Font = uf };
+            settingsPanel.Controls.Add(lblHangDesc);
 
-            // Webhook URL 입력
-            Label lblWebhook = new Label { Text = "Webhook:", Location = new Point(330, 628), AutoSize = true, ForeColor = Color.FromArgb(120, 120, 130), Font = new Font("Segoe UI", 8F) };
-            TextBox txtWebhook = new TextBox { Text = webhookUrl, Location = new Point(390, 626), Width = 160, BackColor = ColorCard, ForeColor = ColorText, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8F) };
-            txtWebhook.Leave += (s, e) => { webhookUrl = txtWebhook.Text; Properties.Settings.Default.WebhookUrl = webhookUrl; };
-            this.Controls.Add(lblWebhook);
-            this.Controls.Add(txtWebhook);
+            Label lblHang = new Label { Text = "응답 대기:", Location = new Point(356, 138), AutoSize = true, ForeColor = lblC, Font = lf };
+            NumericUpDown numHang = new NumericUpDown
+            {
+                Location = new Point(416, 135),
+                Width = 46,
+                Minimum = 5, Maximum = 300,
+                Value = hangTimeoutSec,
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = ColorText,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = lf
+            };
+            numHang.ValueChanged += (s, e) => { hangTimeoutSec = (int)numHang.Value; };
+            Label lblHangUnit = new Label { Text = "초", Location = new Point(465, 138), AutoSize = true, ForeColor = lblC, Font = uf };
+            settingsPanel.Controls.AddRange(new Control[] { lblHang, numHang, lblHangUnit, lblHangDesc });
 
+            // ── 알림 Webhook ───────────────────────────────────────
+            AddSectionHeader(settingsPanel, "알림  Webhook", 12, 162, secC, secF);
+
+            // ── 트레이 아이콘 ──────────────────────────────────────
             trayMenu = new ContextMenuStrip();
-            trayMenu.Renderer = new DarkModeRenderer(); 
+            trayMenu.Renderer = new DarkModeRenderer();
             trayOpenItem = new ToolStripMenuItem("Open Dashboard", null, (s, e) => ShowForm());
             trayExitItem = new ToolStripMenuItem("Exit Guardian", null, (s, e) => ExitApp());
-            // 설정 메뉴
             ToolStripMenuItem traySettingsItem = new ToolStripMenuItem(GetStr("Settings"));
             ToolStripMenuItem menuExport = new ToolStripMenuItem(GetStr("Export"), null, (s, e) => ExportSettings());
             ToolStripMenuItem menuImport = new ToolStripMenuItem(GetStr("Import"), null, (s, e) => ImportSettings());
             ToolStripMenuItem menuProfile = new ToolStripMenuItem(GetStr("Profile"));
-            
             traySettingsItem.DropDownItems.Add(menuExport);
             traySettingsItem.DropDownItems.Add(menuImport);
             traySettingsItem.DropDownItems.Add(new ToolStripSeparator());
             traySettingsItem.DropDownItems.Add(menuProfile);
-            
             trayMenu.Items.Add(trayOpenItem);
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add(traySettingsItem);
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add(trayExitItem);
 
-            trayIcon = new NotifyIcon();
-            trayIcon.Text = "Process Guardian Pro";
-            trayIcon.Icon = SystemIcons.Shield;
-            trayIcon.ContextMenuStrip = trayMenu;
-            trayIcon.Visible = true;
+            trayIcon = new NotifyIcon { Text = "Process Guardian Pro", Icon = SystemIcons.Shield, ContextMenuStrip = trayMenu, Visible = true };
             trayIcon.DoubleClick += (s, e) => ShowForm();
 
+            // ── 로그 ──────────────────────────────────────────────
             logBox = new RichTextBox
             {
-                Location = new Point(25, 685),
-                Size = new Size(515, 140),
-                BackColor = Color.FromArgb(25, 25, 30),
+                Location = new Point(20, 802),
+                Size = new Size(572, 148),
+                BackColor = Color.FromArgb(22, 22, 28),
                 ForeColor = Color.FromArgb(200, 200, 210),
                 BorderStyle = BorderStyle.None,
                 ReadOnly = true,
                 Font = new Font("Consolas", 8.5F)
             };
             this.Controls.Add(logBox);
+
+            // Webhook 텍스트박스는 settingsPanel 아래 별도 패널에 배치
+            Panel webhookPanel = new Panel
+            {
+                Location = new Point(20, 800 - 58),
+                Size = new Size(572, 28),
+                BackColor = Color.Transparent
+            };
+            TextBox txtWebhook = new TextBox
+            {
+                Text = webhookUrl,
+                Location = new Point(0, 0),
+                Width = 572,
+                Height = 26,
+                BackColor = Color.FromArgb(22, 22, 28),
+                ForeColor = Color.FromArgb(180, 180, 200),
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 8F),
+                PlaceholderText = "https://hooks.slack.com/...   (비워두면 알림 없음)"
+            };
+            txtWebhook.Leave += (s, e) => { webhookUrl = txtWebhook.Text; Properties.Settings.Default.WebhookUrl = webhookUrl; };
+            webhookPanel.Controls.Add(txtWebhook);
+            this.Controls.Add(webhookPanel);
+
+            this.Size = new Size(632, 988);
+        }
+
+        private void AddSectionHeader(Panel parent, string text, int x, int y, Color color, Font font)
+        {
+            Label lbl = new Label { Text = text, Location = new Point(x, y), AutoSize = true, ForeColor = color, Font = font };
+            parent.Controls.Add(lbl);
+            int divX = x + TextRenderer.MeasureText(text, font).Width + 6;
+            Panel div = new Panel { Location = new Point(divX, y + 6), Size = new Size(parent.Width - divX - 12, 1), BackColor = Color.FromArgb(45, 45, 60) };
+            parent.Controls.Add(div);
         }
 
         private void AddNewSlot(string path = "", string args = "")
         {
             int i = slots.Count;
             ProcessSlot slot = new ProcessSlot { Index = i, Path = path, Args = args };
-            
-            Panel card = new Panel { Size = new Size(500, 90), BackColor = ColorCard, Padding = new Padding(15), Margin = new Padding(0, 0, 0, 10) };
-            card.Paint += Card_Paint;
-            
-            slot.Led = new Label { Location = new Point(18, 18), Size = new Size(14, 14), BackColor = Color.Transparent, Tag = "stopped" };
-            slot.Led.Paint += StatusLed_Paint;
-            
-            slot.SlotLabel = new Label { Location = new Point(42, 16), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 160), AutoSize = true, Text = $"{GetStr("Slot")} {i + 1}" };
-            slot.StatusText = new Label { Text = "IDLE", Location = new Point(350, 16), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 110), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 100 };
-            slot.PathBox = new TextBox { Text = path, Location = new Point(18, 48), Width = 340, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
 
-            slot.BrowseBtn = new Button { Text = GetStr("Browse"), Location = new Point(365, 45), Width = 50, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorAccent, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 8F), Tag = i };
+            Panel card = new Panel { Size = new Size(550, 88), BackColor = ColorCard, Padding = new Padding(12), Margin = new Padding(0, 0, 0, 8) };
+            card.Paint += Card_Paint;
+
+            slot.Led = new Label { Location = new Point(15, 16), Size = new Size(14, 14), BackColor = Color.Transparent, Tag = "stopped" };
+            slot.Led.Paint += StatusLed_Paint;
+
+            slot.SlotLabel = new Label { Location = new Point(38, 14), Font = new Font("Segoe UI Semibold", 9F), ForeColor = Color.FromArgb(150, 150, 165), AutoSize = true, Text = $"{GetStr("Slot")} {i + 1}" };
+            slot.StatusText = new Label { Text = "IDLE", Location = new Point(424, 14), TextAlign = ContentAlignment.TopRight, ForeColor = Color.FromArgb(100, 100, 115), Font = new Font("Segoe UI", 9F, FontStyle.Bold), Width = 112 };
+
+            slot.PathBox = new TextBox { Text = path, Location = new Point(15, 50), Width = 328, BackColor = Color.FromArgb(20, 20, 25), ForeColor = ColorText, BorderStyle = BorderStyle.None, ReadOnly = true, Font = new Font("Segoe UI", 9F) };
+
+            slot.BrowseBtn = new Button
+            {
+                Text = GetStr("Browse"),
+                Location = new Point(350, 44),
+                Width = 92,
+                Height = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ColorAccent,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                Tag = i,
+                Cursor = Cursors.Hand
+            };
             slot.BrowseBtn.FlatAppearance.BorderSize = 0;
             slot.BrowseBtn.Click += BtnSelect_Click;
             slot.BrowseBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(50, 110, 250); };
             slot.BrowseBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorAccent; };
+            toolTip.SetToolTip(slot.BrowseBtn, "감시할 실행 파일(.exe)을 선택합니다.");
 
-            slot.DeleteBtn = new Button { Text = "×", Location = new Point(420, 45), Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = ColorStatusStopped, ForeColor = Color.White, Font = new Font("Segoe UI", 14F, FontStyle.Bold), Tag = i };
+            slot.DeleteBtn = new Button
+            {
+                Text = "×",
+                Location = new Point(448, 44),
+                Width = 32,
+                Height = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ColorStatusStopped,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+                Tag = i,
+                Cursor = Cursors.Hand
+            };
             slot.DeleteBtn.FlatAppearance.BorderSize = 0;
             slot.DeleteBtn.Click += BtnDelete_Click;
             slot.DeleteBtn.MouseEnter += (s, e) => { ((Button)s).BackColor = Color.FromArgb(200, 50, 50); };
             slot.DeleteBtn.MouseLeave += (s, e) => { ((Button)s).BackColor = ColorStatusStopped; };
+            toolTip.SetToolTip(slot.DeleteBtn, "이 슬롯을 삭제합니다.");
 
             card.Controls.Add(slot.Led);
             card.Controls.Add(slot.SlotLabel);
@@ -256,11 +437,11 @@ namespace ProcessGuardian
             card.Controls.Add(slot.PathBox);
             card.Controls.Add(slot.BrowseBtn);
             card.Controls.Add(slot.DeleteBtn);
-            
+
             slot.Card = card;
             slots.Add(slot);
             flowSlots.Controls.Add(card);
-            
+
             if (flowSlots.Controls.Count > 1) Log($"New monitor slot added (Total: {slots.Count})");
         }
 
@@ -275,8 +456,7 @@ namespace ProcessGuardian
                 slots.RemoveAt(index);
                 SaveSettings();
                 Log($"Slot {index + 1} removed (Remaining: {slots.Count})");
-                
-                // Re-index remaining slots
+
                 for (int i = 0; i < slots.Count; i++)
                 {
                     slots[i].Index = i;
@@ -312,7 +492,7 @@ namespace ProcessGuardian
             }
         }
 
-protected override void OnFormClosing(FormClosingEventArgs e)
+        protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; this.Hide(); trayIcon.ShowBalloonTip(2000, "Background Mode", "Guardian is still protecting your processes.", ToolTipIcon.Info); }
             base.OnFormClosing(e);
@@ -335,7 +515,6 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                     {
                         var slot = slots[i];
                         if (string.IsNullOrWhiteSpace(slot.Path)) continue;
-
                         if (slot.IsBackingOff && DateTime.Now < slot.NextCheckTime) continue;
 
                         bool isRunning = IsProcessRunning(slot.Path);
@@ -346,11 +525,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                                 if (isRunning)
                                 {
                                     if (slot.Led != null) { slot.Led.Tag = "running"; slot.Led.Invalidate(); }
-                                    if (slot.StatusText != null) 
-                                    {
-                                        slot.StatusText.Text = GetStr("Running");
-                                        slot.StatusText.ForeColor = ColorStatusRunning;
-                                    }
+                                    if (slot.StatusText != null) { slot.StatusText.Text = GetStr("Running"); slot.StatusText.ForeColor = ColorStatusRunning; }
                                     slot.FailureCount = 0;
                                     slot.IsBackingOff = false;
                                     CheckProcessResources(slot);
@@ -358,12 +533,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                                 else
                                 {
                                     if (slot.Led != null) { slot.Led.Tag = "stopped"; slot.Led.Invalidate(); }
-                                    if (slot.StatusText != null) 
-                                    {
-                                        slot.StatusText.Text = GetStr("Restarting");
-                                        slot.StatusText.ForeColor = ColorStatusStopped;
-                                    }
-                                    
+                                    if (slot.StatusText != null) { slot.StatusText.Text = GetStr("Restarting"); slot.StatusText.ForeColor = ColorStatusStopped; }
                                     AttemptRecovery(slot);
                                 }
                             }));
@@ -389,9 +559,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                     try
                     {
                         if (string.Equals(p.MainModule?.FileName, targetPath, StringComparison.OrdinalIgnoreCase))
-                        {
                             return true;
-                        }
                     }
                     catch { }
                 }
@@ -404,13 +572,8 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try
             {
-                // 시작 전 스크립트 실행
-                if (!string.IsNullOrWhiteSpace(slot.PreScript))
-                {
-                    RunScript(slot.PreScript);
-                }
+                if (!string.IsNullOrWhiteSpace(slot.PreScript)) RunScript(slot.PreScript);
 
-                // 시작 지연 적용
                 if (startupDelaySec > 0 && slot.FailureCount == 0)
                 {
                     Log($"Waiting {startupDelaySec}s before starting {Path.GetFileName(slot.Path)}...");
@@ -418,17 +581,10 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 }
 
                 ProcessStartInfo psi = new ProcessStartInfo(slot.Path);
-                if (!string.IsNullOrWhiteSpace(slot.Args))
-                {
-                    psi.Arguments = slot.Args;
-                }
+                if (!string.IsNullOrWhiteSpace(slot.Args)) psi.Arguments = slot.Args;
                 Process.Start(psi);
-                
-                // 시작 후 스크립트 실행
-                if (!string.IsNullOrWhiteSpace(slot.PostScript))
-                {
-                    RunScript(slot.PostScript);
-                }
+
+                if (!string.IsNullOrWhiteSpace(slot.PostScript)) RunScript(slot.PostScript);
 
                 Log($"Recovered: {Path.GetFileName(slot.Path)}", ColorStatusRunning);
                 LogToFile($"Recovered: {Path.GetFileName(slot.Path)}");
@@ -440,21 +596,15 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 slot.FailureCount++;
                 Log($"Failed to restart {Path.GetFileName(slot.Path)}: {ex.Message}", ColorStatusStopped);
                 LogToFile($"Failed to restart {Path.GetFileName(slot.Path)}: {ex.Message}");
-                
+
                 if (slot.FailureCount >= 3)
                 {
                     slot.IsBackingOff = true;
-                    slot.NextCheckTime = DateTime.Now.AddSeconds(monitoringInterval * 10 / 1000); 
+                    slot.NextCheckTime = DateTime.Now.AddSeconds(monitoringInterval * 10 / 1000);
                     Log($"Threshold reached for {Path.GetFileName(slot.Path)}. Entering backoff mode.", ColorStatusWarning);
                     LogToFile($"Backoff: {Path.GetFileName(slot.Path)}");
-                    
-                    if (slot.Led != null) {
-                        slot.Led.Tag = "warning";
-                        slot.Led.Invalidate();
-                    }
-                    if (slot.StatusText != null) {
-                        slot.StatusText.Text = "ERROR (LIMIT)";
-                    }
+                    if (slot.Led != null) { slot.Led.Tag = "warning"; slot.Led.Invalidate(); }
+                    if (slot.StatusText != null) slot.StatusText.Text = "ERROR (LIMIT)";
                 }
             }
         }
@@ -464,22 +614,17 @@ protected override void OnFormClosing(FormClosingEventArgs e)
             try {
                 string targetName = Path.GetFileNameWithoutExtension(slot.Path);
                 Process[] p = Process.GetProcessesByName(targetName);
-                foreach(var proc in p) {
+                foreach (var proc in p) {
                     if (string.Equals(proc.MainModule?.FileName, slot.Path, StringComparison.OrdinalIgnoreCase)) {
                         long memMB = proc.WorkingSet64 / 1024 / 1024;
                         slot.LastMemoryMB = memMB;
-                        
-                        try {
-                            proc.Refresh();
-                            slot.LastCpuPercent = proc.TotalProcessorTime.TotalMilliseconds;
-                        } catch { }
+                        try { proc.Refresh(); slot.LastCpuPercent = proc.TotalProcessorTime.TotalMilliseconds; } catch { }
 
                         if (memMB > memoryThresholdMB) {
-                             Log($"[Watchdog] Resource Alert: {Path.GetFileName(slot.Path)} memory usage is high ({memMB}MB).", ColorStatusWarning);
-                             WriteToWindowsEventLog($"Memory warning: {Path.GetFileName(slot.Path)} using {memMB}MB");
+                            Log($"[Watchdog] Resource Alert: {Path.GetFileName(slot.Path)} memory usage is high ({memMB}MB).", ColorStatusWarning);
+                            WriteToWindowsEventLog($"Memory warning: {Path.GetFileName(slot.Path)} using {memMB}MB");
                         }
 
-                        // Hang Detection: UI 스레드가 응답하는지 확인
                         if (slot.IsHangDetectionEnabled && useHangDetection) {
                             bool responding = CheckProcessResponding(proc);
                             slot.IsResponding = responding;
@@ -498,11 +643,9 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try {
                 if (process.HasExited) return false;
-                // 메인 창이 응답하는지 확인 (WM_NULL 메시지 응답 확인)
-                if (process.MainWindowHandle != IntPtr.Zero) {
+                if (process.MainWindowHandle != IntPtr.Zero)
                     return NativeMethods.SendMessageTimeout(process.MainWindowHandle, NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero, NativeMethods.SMTO_ABORTIFHUNG, (uint)hangTimeoutSec * 1000, out _);
-                }
-                return true; // 창이 없으면 응답으로 간주
+                return true;
             } catch { return false; }
         }
 
@@ -511,9 +654,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
             if (!useWindowsEventLog) return;
             try {
                 string source = "Process Guardian";
-                if (!EventLog.SourceExists(source)) {
-                    EventLog.CreateEventSource(source, "Application");
-                }
+                if (!EventLog.SourceExists(source)) EventLog.CreateEventSource(source, "Application");
                 EventLog.WriteEntry(source, message, EventLogEntryType.Warning);
             } catch { }
         }
@@ -537,19 +678,9 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try {
                 if (string.IsNullOrWhiteSpace(scriptPath)) return;
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = scriptPath,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true
-                };
+                ProcessStartInfo psi = new ProcessStartInfo { FileName = scriptPath, UseShellExecute = false, RedirectStandardOutput = true };
                 using var proc = Process.Start(psi);
-                if (proc != null)
-                {
-                    string output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit(10000);
-                    Log($"Script executed: {Path.GetFileName(scriptPath)}");
-                }
+                if (proc != null) { proc.StandardOutput.ReadToEnd(); proc.WaitForExit(10000); Log($"Script executed: {Path.GetFileName(scriptPath)}"); }
             } catch (Exception ex) {
                 Log($"Script failed: {ex.Message}", ColorStatusStopped);
             }
@@ -558,10 +689,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         private void LogToFile(string message)
         {
             if (string.IsNullOrEmpty(logFilePath)) return;
-            try {
-                string logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
-                File.AppendAllText(logFilePath, logEntry + Environment.NewLine);
-            } catch { }
+            try { File.AppendAllText(logFilePath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}"); } catch { }
         }
 
         private void LoadSettings()
@@ -574,22 +702,15 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 startupDelaySec = Properties.Settings.Default.StartupDelaySec;
 
                 string pathsJson = Properties.Settings.Default.Paths;
-                string argsJson = Properties.Settings.Default.SlotArgs;
 
                 if (!string.IsNullOrEmpty(pathsJson) && pathsJson != "[]")
                 {
                     var slotsData = JsonSerializer.Deserialize<List<SlotData>>(pathsJson);
                     if (slotsData != null)
-                    {
-                        foreach (var sd in slotsData)
-                        {
-                            AddNewSlot(sd.Path, sd.Args);
-                        }
-                    }
+                        foreach (var sd in slotsData) AddNewSlot(sd.Path, sd.Args);
                 }
                 else
                 {
-                    // Legacy: load from old Path1-5
                     string[] savedPaths = {
                         Properties.Settings.Default.Path1,
                         Properties.Settings.Default.Path2,
@@ -598,10 +719,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                         Properties.Settings.Default.Path5
                     };
                     for (int i = 0; i < 5; i++)
-                    {
-                        if (!string.IsNullOrEmpty(savedPaths[i]))
-                            AddNewSlot(savedPaths[i]);
-                    }
+                        if (!string.IsNullOrEmpty(savedPaths[i])) AddNewSlot(savedPaths[i]);
                 }
             } catch { }
         }
@@ -611,9 +729,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
             try {
                 var slotsData = new List<SlotData>();
                 for (int i = 0; i < slots.Count; i++)
-                {
                     slotsData.Add(new SlotData { Path = slots[i].Path, Args = slots[i].Args });
-                }
                 Properties.Settings.Default.Paths = JsonSerializer.Serialize(slotsData);
                 Properties.Settings.Default.SlotArgs = "[]";
                 Properties.Settings.Default.MonitoringInterval = monitoringInterval / 1000;
@@ -634,21 +750,18 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 SaveFileDialog sfd = new SaveFileDialog { Filter = "JSON files (*.json)|*.json", FileName = "ProcessGuardian_Config.json" };
                 if (sfd.ShowDialog() == DialogResult.OK) {
                     var config = new {
-                        version = "1.4.0",
+                        version = "1.6.1",
                         slots = slots.Select(s => new { path = s.Path, args = s.Args }).ToList(),
                         monitoringInterval = monitoringInterval / 1000,
-                        memoryThresholdMB = memoryThresholdMB,
-                        webhookUrl = webhookUrl,
-                        useWindowsEventLog = useWindowsEventLog,
-                        useHangDetection = useHangDetection
+                        memoryThresholdMB,
+                        webhookUrl,
+                        useWindowsEventLog,
+                        useHangDetection
                     };
-                    string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(sfd.FileName, json);
+                    File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
                     Log($"Settings exported to {Path.GetFileName(sfd.FileName)}");
                 }
-            } catch (Exception ex) {
-                Log($"Export failed: {ex.Message}", ColorStatusStopped);
-            }
+            } catch (Exception ex) { Log($"Export failed: {ex.Message}", ColorStatusStopped); }
         }
 
         private void ImportSettings()
@@ -659,48 +772,31 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                     string json = File.ReadAllText(ofd.FileName);
                     using var doc = JsonDocument.Parse(json);
                     var root = doc.RootElement;
-                    
-                    // 슬롯 로드
+
                     if (root.TryGetProperty("slots", out var slotsElem)) {
-                        foreach (var slot in slots) {
-                            if (slot.Card != null) flowSlots.Controls.Remove(slot.Card);
-                        }
+                        foreach (var slot in slots) if (slot.Card != null) flowSlots.Controls.Remove(slot.Card);
                         slots.Clear();
-                        
                         foreach (var slotElem in slotsElem.EnumerateArray()) {
-                            string path = slotElem.GetProperty("path").GetString() ?? "";
-                            string args = slotElem.TryGetProperty("args", out var argsProp) ? argsProp.GetString() ?? "" : "";
-                            AddNewSlot(path, args);
+                            string p = slotElem.GetProperty("path").GetString() ?? "";
+                            string a = slotElem.TryGetProperty("args", out var ap) ? ap.GetString() ?? "" : "";
+                            AddNewSlot(p, a);
                         }
                     }
-                    
-                    // 설정 로드
-                    if (root.TryGetProperty("monitoringInterval", out var interval))
-                        monitoringInterval = interval.GetInt32() * 1000;
-                    if (root.TryGetProperty("memoryThresholdMB", out var memThreshold))
-                        memoryThresholdMB = memThreshold.GetInt32();
-                    if (root.TryGetProperty("webhookUrl", out var webhook))
-                        webhookUrl = webhook.GetString() ?? "";
-                    if (root.TryGetProperty("useWindowsEventLog", out var winLog))
-                        useWindowsEventLog = winLog.GetBoolean();
-                    if (root.TryGetProperty("useHangDetection", out var hangDetect))
-                        useHangDetection = hangDetect.GetBoolean();
-                    
+                    if (root.TryGetProperty("monitoringInterval", out var iv)) monitoringInterval = iv.GetInt32() * 1000;
+                    if (root.TryGetProperty("memoryThresholdMB", out var mt)) memoryThresholdMB = mt.GetInt32();
+                    if (root.TryGetProperty("webhookUrl", out var wh)) webhookUrl = wh.GetString() ?? "";
+                    if (root.TryGetProperty("useWindowsEventLog", out var wl)) useWindowsEventLog = wl.GetBoolean();
+                    if (root.TryGetProperty("useHangDetection", out var hd)) useHangDetection = hd.GetBoolean();
+
                     SaveSettings();
                     Log($"Settings imported from {Path.GetFileName(ofd.FileName)}");
                 }
-            } catch (Exception ex) {
-                Log($"Import failed: {ex.Message}", ColorStatusStopped);
-            }
+            } catch (Exception ex) { Log($"Import failed: {ex.Message}", ColorStatusStopped); }
         }
 
         private void Log(string message, Color? color = null)
         {
-            if (logBox.InvokeRequired)
-            {
-                logBox.Invoke(new Action(() => Log(message, color)));
-                return;
-            }
+            if (logBox.InvokeRequired) { logBox.Invoke(new Action(() => Log(message, color))); return; }
             logBox.SelectionStart = logBox.TextLength;
             logBox.SelectionLength = 0;
             logBox.SelectionColor = color ?? ColorText;
@@ -711,14 +807,10 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         private bool IsAutoStartEnabled()
         {
             try {
-                // HKCU (현재 사용자)
-                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) { 
-                    if (key?.GetValue("ProcessGuardian") != null) return true; 
-                }
-                // HKLM (시스템 전체 - 관리자용)
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false)) {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
                     if (key?.GetValue("ProcessGuardian") != null) return true;
-                }
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
+                    if (key?.GetValue("ProcessGuardian") != null) return true;
             } catch { }
             return false;
         }
@@ -734,15 +826,9 @@ protected override void OnFormClosing(FormClosingEventArgs e)
             } catch (Exception ex) { Log($"Failed to set auto-start: {ex.Message}", ColorStatusStopped); }
         }
 
-        /// <summary>
-        /// 관리자 권한으로 시스템 전체 자동 시작 설정 (HKLM)
-        /// </summary>
         private void SetSystemAutoStart(bool enable)
         {
-            if (!isAdmin) {
-                Log("Administrator privileges required for system-wide auto-start.", ColorStatusWarning);
-                return;
-            }
+            if (!isAdmin) { Log("Administrator privileges required for system-wide auto-start.", ColorStatusWarning); return; }
             try {
                 using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true)) {
                     if (enable) key?.SetValue("ProcessGuardian", $"\"{Application.ExecutablePath}\"");
@@ -753,40 +839,32 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         }
 
         private void ShowForm() { this.Show(); this.WindowState = FormWindowState.Normal; this.Activate(); }
-        private void ExitApp() 
-        { 
-            // Graceful Shutdown: 감시 중인 모든 프로세스 정리
+
+        private void ExitApp()
+        {
             Log("Graceful shutdown initiated...");
             foreach (var slot in slots)
             {
                 if (!string.IsNullOrWhiteSpace(slot.Path))
                 {
-                    try
-                    {
+                    try {
                         string targetName = Path.GetFileNameWithoutExtension(slot.Path);
-                        Process[] procs = Process.GetProcessesByName(targetName);
-                        foreach (var p in procs)
+                        foreach (var p in Process.GetProcessesByName(targetName))
                         {
                             if (string.Equals(p.MainModule?.FileName, slot.Path, StringComparison.OrdinalIgnoreCase))
                             {
                                 p.CloseMainWindow();
-                                if (!p.WaitForExit(5000))
-                                {
-                                    p.Kill();
-                                }
+                                if (!p.WaitForExit(5000)) p.Kill();
                                 Log($"Terminated: {targetName}");
                             }
                         }
-                    }
-                    catch { }
+                    } catch { }
                 }
             }
-            cts?.Cancel(); 
-            trayIcon.Visible = false; 
-            Application.Exit(); 
+            cts?.Cancel();
+            trayIcon.Visible = false;
+            Application.Exit();
         }
-
-        private int currentLangIndex = 0; 
 
         private string GetStr(string key)
         {
@@ -799,37 +877,31 @@ protected override void OnFormClosing(FormClosingEventArgs e)
                 ["Stopped"] = new[] { "STOPPED", "중지됨", "停止中", "已停止" },
                 ["Restarting"] = new[] { "RESTARTING...", "재시작 중...", "再起動中...", "正在重启..." },
                 ["Empty"] = new[] { "EMPTY", "비어 있음", "空", "空" },
-                ["Recovered"] = new[] { "recovered successfully.", "성공적으로 복구되었습니다.", "正常에 復구되었습니다.", "成功恢复。" },
+                ["Recovered"] = new[] { "recovered successfully.", "성공적으로 복구되었습니다.", "正常に復旧されました.", "成功恢复。" },
                 ["Open"] = new[] { "Open Dashboard", "대시보드 열기", "ダッシュボードを開く", "打开仪表板" },
-                ["Exit"] = new[] { "Exit Guardian", "프로그램 종료", "ガー디안 종료", "退出" },
+                ["Exit"] = new[] { "Exit Guardian", "프로그램 종료", "終了", "退出" },
                 ["Loaded"] = new[] { "LOADED", "로드됨", "ロード済み", "已加载" },
-                ["Lang"] = new[] { "Language:", "언어 설정:", "言語設定:", "语言设置:" },
-                ["Interval"] = new[] { "Interval (sec):", "간격 (초):", "間隔 (秒):", "间隔 (秒):" },
-                ["MemThreshold"] = new[] { "Memory (MB):", "메모리 (MB):", "メモリ (MB):", "Memory (MB):" },
-                ["AutoStart"] = new[] { "Auto Start:", "자동 시작:", "自動開始:", "Auto Start:" },
-                ["WinEventLog"] = new[] { "Event Log:", "이벤트 로그:", "イベントログ:", "Event Log:" },
-                ["HangDetect"] = new[] { "Hang Detect:", "응답 감지:", "応答検出:", "Hang Detect:" },
+                ["Lang"] = new[] { "Language:", "언어:", "言語:", "语言:" },
+                ["Interval"] = new[] { "Interval:", "감시 주기:", "間隔:", "间隔:" },
                 ["Export"] = new[] { "Export Settings", "설정 내보내기", "設定エクスポート", "Export" },
                 ["Import"] = new[] { "Import Settings", "설정 가져오기", "設定インポート", "Import" },
                 ["Settings"] = new[] { "Settings", "설정", "設定", "Settings" },
                 ["Profile"] = new[] { "Profile", "프로필", "プロファイル", "Profile" },
-                ["StartupDelay"] = new[] { "Startup Delay:", "시작 지연:", "起動遅延:", "Startup Delay:" },
-                ["HangTimeout"] = new[] { "Hang Timeout:", "응답 시간:", "応答タイムアウト:", "Hang Timeout:" }
             };
             if (storage.ContainsKey(key)) return storage[key][currentLangIndex];
             return key;
         }
 
         private void ChangeLanguage(int index) { currentLangIndex = index; UpdateUITexts(); }
-        
-        private void UpdateUITexts() 
-        { 
-            this.Text = GetStr("Title"); 
-            lblLang.Text = GetStr("Lang");
-            lblInterval.Text = GetStr("Interval");
-            trayOpenItem.Text = GetStr("Open");
-            trayExitItem.Text = GetStr("Exit");
-            if (btnAddSlot != null) btnAddSlot.Text = "+ " + GetStr("Slot");
+
+        private void UpdateUITexts()
+        {
+            this.Text = GetStr("Title");
+            if (lblLang != null) lblLang.Text = GetStr("Lang");
+            if (lblInterval != null) lblInterval.Text = GetStr("Interval");
+            if (trayOpenItem != null) trayOpenItem.Text = GetStr("Open");
+            if (trayExitItem != null) trayExitItem.Text = GetStr("Exit");
+            if (btnAddSlot != null) btnAddSlot.Text = "+ 신규 슬롯";
 
             for (int i = 0; i < slots.Count; i++)
             {
@@ -842,29 +914,37 @@ protected override void OnFormClosing(FormClosingEventArgs e)
         {
             Panel card = (Panel)sender;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            int radius = 15;
-            GraphicsPath path = GetRoundedRectanglePath(card.ClientRectangle, radius);
+            GraphicsPath path = GetRoundedRectanglePath(card.ClientRectangle, 14);
             card.Region = new Region(path);
-            using (Pen pen = new Pen(Color.FromArgb(50, 50, 60), 1)) { e.Graphics.DrawPath(pen, path); }
+            using (Pen pen = new Pen(Color.FromArgb(50, 50, 62), 1)) { e.Graphics.DrawPath(pen, path); }
         }
 
         private void StatusLed_Paint(object sender, PaintEventArgs e)
         {
             Label led = (Label)sender;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Color baseColor;
             string status = led.Tag?.ToString() ?? "idle";
-            if (status == "running") baseColor = ColorStatusRunning;
-            else if (status == "stopped") baseColor = ColorStatusStopped;
-            else if (status == "warning") baseColor = ColorStatusWarning;
-            else baseColor = Color.FromArgb(60, 60, 70);
+            Color baseColor = status == "running" ? ColorStatusRunning
+                            : status == "stopped" ? ColorStatusStopped
+                            : status == "warning" ? ColorStatusWarning
+                            : Color.FromArgb(60, 60, 70);
 
             using (GraphicsPath path = new GraphicsPath())
             {
                 path.AddEllipse(led.ClientRectangle);
-                using (PathGradientBrush pgb = new PathGradientBrush(path)) { pgb.CenterColor = Color.White; pgb.SurroundColors = new Color[] { baseColor }; e.Graphics.FillEllipse(pgb, led.ClientRectangle); }
+                using (PathGradientBrush pgb = new PathGradientBrush(path))
+                {
+                    pgb.CenterColor = Color.White;
+                    pgb.SurroundColors = new Color[] { baseColor };
+                    e.Graphics.FillEllipse(pgb, led.ClientRectangle);
+                }
             }
-            using (Pen pen = new Pen(Color.FromArgb(100, baseColor), 2)) { Rectangle rect = led.ClientRectangle; rect.Inflate(1, 1); e.Graphics.DrawEllipse(pen, rect); }
+            using (Pen pen = new Pen(Color.FromArgb(100, baseColor), 2))
+            {
+                Rectangle rect = led.ClientRectangle;
+                rect.Inflate(1, 1);
+                e.Graphics.DrawEllipse(pen, rect);
+            }
         }
 
         private GraphicsPath GetRoundedRectanglePath(Rectangle rect, int radius)
@@ -930,7 +1010,7 @@ protected override void OnFormClosing(FormClosingEventArgs e)
 
     internal static class NativeMethods
     {
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
         public const uint WM_NULL = 0x0000;
         public const uint SMTO_ABORTIFHUNG = 0x0002;

@@ -1,6 +1,6 @@
 ---
 
-# Release Notes: Process Guardian v1.6.0 (Professional Edition)
+# Release Notes: Process Guardian v1.7.0 (Professional Edition)
 
 ## 주요 업데이트
 
@@ -42,6 +42,16 @@
 ---
 
 ## 변경 이력
+
+### v1.7.0 (2026-04-20)
+- UI 전면 재구성 — 설정 영역을 섹션 카드 형태로 정리
+  - **기본 설정**: 언어 / 감시 주기 / 메모리 경고 임계값
+  - **실행 옵션**: Windows 자동 실행 / 시작 지연 (설명 포함)
+  - **모니터링**: 이벤트 로그 / 응답 없음 감지 / 응답 대기
+  - **알림 Webhook**: URL 입력창 (placeholder 안내 포함)
+- 시스템 언어 자동 감지 (CultureInfo 기반, 한/영/일/중)
+- 프로세스 카드 레이아웃 정렬 개선 — 찾아보기 버튼 너비 확대
+- 관리자 권한 상태를 타이틀 아래 독립 라벨로 분리 표시
 
 ### v1.6.0 (2026-04-17)
 - Graceful Shutdown 추가
